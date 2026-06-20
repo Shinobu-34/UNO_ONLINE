@@ -346,6 +346,34 @@ input[type="text"]::placeholder {
   font-weight: 600;
 }
 
+.btn-kick {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.btn-kick:hover {
+  background: var(--uno-red);
+  color: white;
+  border-color: var(--uno-red);
+  transform: scale(1.1);
+  box-shadow: var(--glow-red);
+}
+.btn-kick:active {
+  transform: scale(0.95);
+}
+
 .lobby-actions {
   display: flex;
   flex-direction: column;
@@ -358,6 +386,31 @@ input[type="text"]::placeholder {
    ══════════════════════════════════════════════════════════ */
 #game-screen {
   flex-direction: column;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 100;
+}
+
+.game-room-info {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+}
+
+#game-room-code-val {
+  color: var(--accent);
+  text-shadow: var(--accent-glow);
+  font-weight: 800;
 }
 
 /* Top opponents bar */
@@ -978,6 +1031,39 @@ input[type="text"]::placeholder {
   font-weight: 800;
   color: var(--accent);
   margin-top: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CUSTOM CONFIRMATION MODAL
+   ══════════════════════════════════════════════════════════ */
+.confirm-modal {
+  padding: 28px;
+  max-width: 380px;
+  width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalIn 0.3s ease;
+}
+
+.confirm-modal h3 {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.confirm-modal p {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
 }
 
 /* ══════════════════════════════════════════════════════════

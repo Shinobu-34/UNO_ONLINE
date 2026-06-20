@@ -66,11 +66,22 @@ class UnoGame {
     const idx = this.players.findIndex(p => p.id === playerId);
     if (idx === -1) return;
 
+    const isHostLeaving = (this.hostId === playerId);
+
     if (this.state === 'lobby') {
       this.players.splice(idx, 1);
-      if (this.players.length > 0 && this.hostId === playerId) {
+      if (this.players.length > 0 && isHostLeaving) {
         this.hostId = this.players[0].id;
       }
+    } else if (this.state === 'finished') {
+      // Game is over (state is 'finished')
+      // If the host leaves, delete the entire room / notify players
+      if (isHostLeaving) {
+        this.closeRoom('The host has left. The room is closed.');
+        return;
+      }
+      // If a regular player leaves after game over, just remove them
+      this.players.splice(idx, 1);
     } else {
       this.players[idx].connected = false;
       this.players[idx].ws = null;
@@ -86,6 +97,36 @@ class UnoGame {
         this.broadcastNotification(`${this.players[idx].name} disconnected. Skipping their turn.`);
       }
     }
+  }
+
+  closeRoom(reason) {
+    // Notify all connected players
+    for (const p of this.players) {
+      if (p.connected && p.ws) {
+        send(p.ws, { type: 'roomClosed', reason });
+      }
+    }
+    // Delete the room from storage
+    rooms.delete(this.roomCode);
+  }
+
+  kickPlayer(targetId) {
+    if (this.state !== 'lobby') throw new Error('Cannot kick players once the game has started');
+    const idx = this.players.findIndex(p => p.id === targetId);
+    if (idx === -1) return;
+
+    const kickedPlayer = this.players[idx];
+    
+    // Send a message to the kicked player so they know they were kicked and return to home screen
+    if (kickedPlayer.ws) {
+      send(kickedPlayer.ws, { type: 'kicked', reason: 'You have been removed from the room by the host.' });
+    }
+
+    // Remove them from the list
+    this.players.splice(idx, 1);
+    
+    this.broadcastNotification(`${kickedPlayer.name} was removed from the room.`);
+    this.broadcastLobby();
   }
 
   reconnectPlayer(playerId, ws) {
@@ -524,6 +565,7 @@ class UnoGame {
       drawPileCount: this.deck.length,
       isMyTurn: player.id === this.cur().id && !this.pendingWild4,
       hasDrawnCard: this.drawnCard !== null && player.id === this.cur().id,
+      drawnCard: (this.drawnCard !== null && player.id === this.cur().id) ? this.drawnCard : null,
       pendingWild4: this.pendingWild4 ? {
         victimId: this.pendingWild4.victimId,
         playerName: this.pendingWild4.playerName
@@ -696,6 +738,12 @@ wss.on('connection', (ws) => {
           if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can restart' });
           game.resetForNewGame();
           game.broadcastLobby();
+          break;
+
+        case 'kickPlayer':
+          if (!game) return;
+          if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can kick players' });
+          game.kickPlayer(msg.targetId);
           break;
 
         default:

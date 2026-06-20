@@ -50,6 +50,7 @@
   const unoBtn         = $('#uno-btn');
   const catchButtons   = $('#catch-buttons');
   const dirIndicator   = $('#direction-indicator');
+  const gameLeaveBtn   = $('#game-leave-btn');
 
   // Drawn card prompt
   const drawnPrompt    = $('#drawn-card-prompt');
@@ -184,6 +185,44 @@
     }
   }
 
+  function showCustomConfirm(title, desc, onYes) {
+    const modal = $('#confirm-modal');
+    const titleEl = $('#confirm-modal-title');
+    const descEl = $('#confirm-modal-desc');
+    const yesBtn = $('#confirm-yes-btn');
+    const noBtn = $('#confirm-no-btn');
+
+    titleEl.textContent = title;
+    descEl.textContent = desc;
+    modal.style.display = 'flex';
+
+    // Clone buttons to clear existing listeners
+    const newYesBtn = yesBtn.cloneNode(true);
+    const newNoBtn = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+
+    newYesBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+      if (onYes) onYes();
+    });
+
+    newNoBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+  }
+
+  function leaveGameAction() {
+    Network.disconnect();
+    myId = null;
+    roomCode = null;
+    isHost = false;
+    stopChallengeTimer();
+    showScreen('home');
+    // Reconnect the WebSocket for future use
+    setTimeout(() => Network.connect(onMessage), 500);
+  }
+
   // ── Network Message Handler ───────────────────────────
   function onMessage(data) {
     switch (data.type) {
@@ -207,7 +246,6 @@
 
       case 'gameState':
         gameState = data;
-        drawnPrompt.style.display = 'none';
         renderGame(data);
         break;
 
@@ -224,6 +262,16 @@
 
       case 'gameOver':
         showVictory(data);
+        break;
+
+      case 'roomClosed':
+        showToast('🚪 ' + (data.reason || 'Room closed by host'));
+        leaveGameAction();
+        break;
+
+      case 'kicked':
+        showToast('🚪 ' + (data.reason || 'You were kicked from the room'));
+        leaveGameAction();
         break;
 
       case 'error':
@@ -267,6 +315,23 @@
         item.appendChild(badge);
       }
 
+      if (isHost && p.id !== myId) {
+        const kickBtn = document.createElement('button');
+        kickBtn.className = 'btn-kick';
+        kickBtn.innerHTML = '✕';
+        kickBtn.title = `Kick ${p.name}`;
+        kickBtn.addEventListener('click', () => {
+          showCustomConfirm(
+            'Remove Player?',
+            `Are you sure you want to remove ${p.name} from the room?`,
+            () => {
+              Network.send({ type: 'kickPlayer', targetId: p.id });
+            }
+          );
+        });
+        item.appendChild(kickBtn);
+      }
+
       lobbyPlayers.appendChild(item);
     });
 
@@ -281,6 +346,7 @@
   // ── Render Game ───────────────────────────────────────
   function renderGame(state) {
     showScreen('game');
+    $('#game-room-code-val').textContent = roomCode;
 
     // Opponents bar
     renderOpponents(state);
@@ -357,6 +423,15 @@
     // Draw pile interactivity
     drawPile.style.pointerEvents = state.isMyTurn && !state.hasDrawnCard ? 'auto' : 'none';
     drawPile.style.opacity = state.isMyTurn && !state.hasDrawnCard ? '1' : '0.6';
+
+    // Drawn card prompt
+    if (state.drawnCard) {
+      drawnCardData = { card: state.drawnCard, canPlay: true };
+      showDrawnCardPrompt(state.drawnCard);
+    } else {
+      drawnPrompt.style.display = 'none';
+      drawnCardData = null;
+    }
   }
 
   function renderOpponents(state) {
@@ -564,14 +639,7 @@
 
   // Lobby — Leave Room
   leaveRoomBtn.addEventListener('click', () => {
-    Network.disconnect();
-    myId = null;
-    roomCode = null;
-    isHost = false;
-    stopChallengeTimer();
-    showScreen('home');
-    // Reconnect the WebSocket for future use
-    setTimeout(() => Network.connect(onMessage), 500);
+    leaveGameAction();
   });
 
   // Game — Draw Pile
@@ -640,6 +708,17 @@
     stopChallengeTimer();
   });
 
+  // Game — Leave Game button
+  gameLeaveBtn.addEventListener('click', () => {
+    showCustomConfirm(
+      'Leave Game?',
+      'Are you sure you want to leave the game?',
+      () => {
+        leaveGameAction();
+      }
+    );
+  });
+
   // Victory — Play Again
   playAgainBtn.addEventListener('click', () => {
     Network.send({ type: 'playAgain' });
@@ -647,13 +726,7 @@
 
   // Victory — Leave
   leaveGameBtn.addEventListener('click', () => {
-    Network.disconnect();
-    myId = null;
-    roomCode = null;
-    isHost = false;
-    stopChallengeTimer();
-    showScreen('home');
-    setTimeout(() => Network.connect(onMessage), 500);
+    leaveGameAction();
   });
 
   // ── Initialize ────────────────────────────────────────
