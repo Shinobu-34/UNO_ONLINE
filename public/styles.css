@@ -435,6 +435,7 @@ input[type="text"]::placeholder {
    ══════════════════════════════════════════════════════════ */
 #game-screen {
   flex-direction: column;
+  background: radial-gradient(circle at center, #1b263b 0%, #0d131f 100%);
 }
 
 .game-header {
@@ -462,68 +463,315 @@ input[type="text"]::placeholder {
   font-weight: 800;
 }
 
-/* Top opponents bar */
-.game-top-bar {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  flex-wrap: wrap;
-  z-index: 10;
-}
-
-.opponent-chip {
+/* ── Dynamic Table Area ── */
+.table-area-wrapper {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  position: relative;
+  padding: 10px;
+  width: 100%;
+  height: calc(100vh - 200px);
+  /* leave room for header and player hand HUD */
+  min-height: 380px;
+  box-sizing: border-box;
+}
+
+/* Outer wooden border / glass-morphic felt table */
+.uno-table {
+  position: relative;
+  width: 92%;
+  max-width: 860px;
+  height: 88%;
+  max-height: 460px;
+  min-height: 310px;
+  background: radial-gradient(circle, #253341 0%, #151e27 100%);
+  border: 14px solid #5c3a21;
+  /* Rich wooden frame */
+  border-radius: 48px;
+  /* Wood bevel shadows */
+  box-shadow:
+    inset 0 0 20px rgba(0, 0, 0, 0.8),
+    0 12px 28px rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* Inner Felt Mat (Burgundy felt with gold border) */
+.table-inner-mat {
+  position: relative;
+  width: 70%;
+  height: 70%;
+  min-height: 180px;
+  background: radial-gradient(circle, #7e1e2d 0%, #3e0710 100%);
+  border: 3px double rgba(197, 160, 89, 0.65);
+  /* Elegant gold border */
+  border-radius: 24px;
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Center Table / Piles container */
+.table-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+}
+
+.pile-area {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
+.pile-label {
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.deck-sub {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Direction indicator centered inside felt mat behind piles */
+.direction-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) !important;
+  width: 200px;
+  height: 200px;
+  color: rgba(255, 255, 255, 0.12);
+  /* very subtle behind piles */
+  pointer-events: none;
+  z-index: 1;
+  transition: transform 0.5s ease;
+}
+
+/* Opponent slots distributed absolutely around the outer edge of felt */
+.opponents-slots-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* let clicks pass through to felt/draw pile */
+  z-index: 15;
+}
+
+.opponent-slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 30px;
-  font-size: 0.85rem;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
+  background: rgba(16, 24, 39, 0.85);
+  /* dark semi-transparent plate */
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  font-size: 0.8rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  /* make them interactive */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 220px;
+  z-index: 20;
 }
 
-.opponent-chip.active-turn {
-  border-color: var(--accent);
-  box-shadow: var(--accent-glow);
-  background: rgba(168, 85, 247, 0.15);
+.opponent-slot.active-turn {
+  border-color: var(--uno-yellow);
+  box-shadow: 0 0 15px rgba(234, 179, 8, 0.4), 0 6px 18px rgba(0, 0, 0, 0.5);
+  background: rgba(234, 179, 8, 0.08);
 }
 
-.opponent-chip.disconnected {
+.opponent-slot.disconnected {
   opacity: 0.4;
 }
 
 .opp-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 1.25rem;
   color: white;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.15), 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.opp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-body);
+}
+
+.opp-name {
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+  font-size: 0.82rem;
+}
+
+.opp-score {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.opp-card-count-text {
+  font-size: 0.68rem;
+  color: var(--uno-yellow);
+  font-weight: 700;
+}
+
+/* Fanned card backs preview inside slots */
+.opp-card-fan {
+  display: block;
+  position: relative;
+  width: 55px;
+  height: 40px;
+  margin-left: 6px;
   flex-shrink: 0;
 }
 
-.opp-count {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 0.8rem;
+.opp-card-back-mini {
+  position: absolute;
+  width: 24px;
+  height: 35px;
+  border-radius: 4px;
+  background: #000;
+  border: 1px solid #fff;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.4);
+  transform-origin: bottom center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 0.3s;
+}
+
+/* Diagonal red oval */
+.opp-card-back-mini::before {
+  content: '';
+  position: absolute;
+  width: 85%;
+  height: 85%;
+  background: radial-gradient(circle, #ef4444 0%, #a61c1c 100%);
+  border-radius: 50% 30% 50% 30%;
+  transform: rotate(-15deg);
+}
+
+/* Tiny gold letters */
+.opp-card-back-mini::after {
+  content: 'UNO';
+  position: absolute;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 7px;
+  color: #fbbf24;
+  text-shadow: 0.5px 0.5px 0px #000;
+  transform: rotate(-18deg);
+  z-index: 2;
+  letter-spacing: 0.5px;
+}
+
+/* Overwrite card backs overlap offset */
+.opp-card-back-mini:nth-child(1) {
+  left: 0px;
+  z-index: 1;
+}
+
+.opp-card-back-mini:nth-child(2) {
+  left: 10px;
+  z-index: 2;
+}
+
+.opp-card-back-mini:nth-child(3) {
+  left: 20px;
+  z-index: 3;
+}
+
+.opp-card-back-mini:nth-child(4) {
+  left: 30px;
+  z-index: 4;
+}
+
+/* Dynamic absolute positions for slots relative to .uno-table outer boundary */
+.opponent-slot.pos-left {
+  left: -35px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.opponent-slot.pos-right {
+  right: -35px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.opponent-slot.pos-top {
+  top: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.opponent-slot.pos-top-left {
+  top: -30px;
+  left: 12%;
+}
+
+.opponent-slot.pos-top-right {
+  top: -30px;
+  right: 12%;
+}
+
+.opponent-slot.pos-bottom-left {
+  bottom: 10px;
+  left: -20px;
+}
+
+.opponent-slot.pos-bottom-right {
+  bottom: 10px;
+  right: -20px;
 }
 
 .opp-uno-badge {
-  font-size: 0.7rem;
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  font-size: 0.65rem;
   background: var(--uno-red);
   color: white;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 8px;
   font-weight: 700;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
   animation: unoPulse 0.8s ease-in-out infinite;
+  z-index: 100;
 }
 
 @keyframes unoPulse {
@@ -538,38 +786,67 @@ input[type="text"]::placeholder {
   }
 }
 
-/* Direction indicator */
-.direction-indicator {
-  position: absolute;
-  top: 50%;
-  right: 30px;
-  transform: translateY(-50%);
-  width: 56px;
-  height: 56px;
-  color: var(--text-dim);
-  z-index: 5;
-  transition: transform 0.5s ease;
-}
-
-.direction-svg {
-  width: 100%;
-  height: 100%;
-}
-
-/* Center table */
-.table-center {
-  flex: 1;
+/* ── Bottom HUD & Hand layout ── */
+.player-hud {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  position: relative;
+  width: 100%;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  pointer-events: none;
 }
 
-.pile-area {
+.player-hud-info {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(16, 24, 39, 0.85);
+  /* dark semi-transparent plate */
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  pointer-events: auto;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  position: absolute;
+  bottom: 165px;
+  /* Floats perfectly above fanned hand */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+}
+
+.hud-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.15), 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.hud-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-body);
+}
+
+.hud-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hud-score {
+  font-size: 0.68rem;
+  color: var(--text-dim);
 }
 
 /* Draw pile */
@@ -588,9 +865,9 @@ input[type="text"]::placeholder {
 }
 
 .card-back {
-  width: 100px;
-  height: 145px;
-  border-radius: 12px;
+  width: 90px;
+  height: 130px;
+  border-radius: 10px;
   background: linear-gradient(145deg, #1a1a3a, #0d0d22);
   border: 3px solid rgba(168, 85, 247, 0.4);
   display: flex;
@@ -641,8 +918,8 @@ input[type="text"]::placeholder {
 }
 
 .discard-pile {
-  width: 100px;
-  height: 145px;
+  width: 90px;
+  height: 130px;
   position: relative;
 }
 
@@ -848,23 +1125,26 @@ input[type="text"]::placeholder {
 
 /* Player hand */
 .hand-area {
-  padding: 12px 20px 20px;
-  z-index: 10;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  z-index: 20;
   position: relative;
+  overflow: visible;
+  pointer-events: none;
 }
 
 .hand-scroll {
   display: flex;
   justify-content: center;
-  gap: 0;
-  padding: 10px 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.hand-scroll::-webkit-scrollbar {
-  display: none;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 800px;
+  height: 160px;
+  margin: 0 auto;
+  overflow: visible;
+  position: relative;
+  pointer-events: auto;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -877,21 +1157,25 @@ input[type="text"]::placeholder {
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s, margin 0.2s;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
   user-select: none;
-  margin-left: -20px;
   transform-origin: bottom center;
 }
 
-.uno-card:first-child {
-  margin-left: 0;
+.hand-scroll .uno-card {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  --card-rot: 0deg;
+  --card-tx: 0px;
+  --card-ty: 0px;
+  transform: translate(calc(-50% + var(--card-tx)), var(--card-ty)) rotate(var(--card-rot));
 }
 
-.uno-card:hover {
-  transform: translateY(-28px) scale(1.08);
-  z-index: 100 !important;
-  margin-left: 0;
-  margin-right: 0;
+.hand-scroll .uno-card:hover {
+  transform: translate(calc(-50% + var(--card-tx)), calc(var(--card-ty) - 35px)) rotate(var(--card-rot)) scale(1.18);
+  z-index: 1000 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
 }
 
 .uno-card.not-playable {
@@ -899,8 +1183,8 @@ input[type="text"]::placeholder {
   filter: grayscale(0.3);
 }
 
-.uno-card.not-playable:hover {
-  transform: translateY(-8px);
+.hand-scroll .uno-card.not-playable:hover {
+  transform: translate(calc(-50% + var(--card-tx)), calc(var(--card-ty) - 8px)) rotate(var(--card-rot));
   cursor: not-allowed;
 }
 
@@ -1485,7 +1769,6 @@ input[type="text"]::placeholder {
   .uno-card {
     width: 72px;
     height: 104px;
-    margin-left: -18px;
   }
 
   .card-value {
@@ -1501,6 +1784,85 @@ input[type="text"]::placeholder {
     font-size: 1.2rem;
     padding: 12px 22px;
   }
+
+  /* Table scale-down for tablets */
+  .uno-table {
+    border-width: 8px;
+    border-radius: 28px;
+    padding: 12px;
+  }
+
+  .table-inner-mat {
+    border-width: 1.5px;
+    border-radius: 16px;
+    padding: 8px;
+  }
+
+  .opponent-slot {
+    padding: 6px 10px;
+    gap: 8px;
+    font-size: 0.72rem;
+    border-radius: 10px;
+  }
+
+  .opp-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+    border-radius: 6px;
+  }
+
+  .opp-card-fan {
+    width: 40px;
+    height: 30px;
+    margin-left: 4px;
+  }
+
+  .opp-card-back-mini {
+    width: 18px;
+    height: 26px;
+  }
+
+  .opp-card-back-mini::before {
+    border-radius: 2px;
+  }
+
+  .opp-card-back-mini::after {
+    font-size: 5px;
+  }
+
+  .opp-card-back-mini:nth-child(2) { left: 7px; }
+  .opp-card-back-mini:nth-child(3) { left: 14px; }
+  .opp-card-back-mini:nth-child(4) { left: 21px; }
+
+  /* Adjust position offsets to avoid overflow */
+  .opponent-slot.pos-left { left: -10px; }
+  .opponent-slot.pos-right { right: -10px; }
+  .opponent-slot.pos-top { top: -25px; }
+  .opponent-slot.pos-top-left { top: -20px; left: 6%; }
+  .opponent-slot.pos-top-right { top: -20px; right: 6%; }
+
+  /* Player HUD info block on tablet */
+  .player-hud-info {
+    bottom: 135px;
+    padding: 6px 10px;
+    border-radius: 10px;
+  }
+
+  .hud-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+    border-radius: 6px;
+  }
+
+  .hand-scroll {
+    height: 130px;
+  }
+
+  .uno-card {
+    bottom: 5px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1508,10 +1870,12 @@ input[type="text"]::placeholder {
     gap: 16px;
   }
 
-  .uno-card {
+  .uno-card,
+  .card-back,
+  .discard-pile,
+  .discard-pile .uno-card {
     width: 62px;
     height: 90px;
-    margin-left: -16px;
     border-radius: 8px;
   }
 
@@ -1542,15 +1906,81 @@ input[type="text"]::placeholder {
     font-size: 1.6rem;
   }
 
-  .opponent-chip {
-    padding: 5px 10px;
-    font-size: 0.75rem;
+  /* Table scale-down for mobile */
+  .uno-table {
+    border-width: 6px;
+    border-radius: 20px;
+    padding: 8px;
+  }
+
+  .table-inner-mat {
+    border-radius: 12px;
+    padding: 6px;
+  }
+
+  .opponent-slot {
+    padding: 4px 8px;
+    gap: 6px;
+    font-size: 0.65rem;
+    border-radius: 8px;
   }
 
   .opp-avatar {
     width: 22px;
     height: 22px;
-    font-size: 0.65rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+  }
+
+  .opp-card-fan {
+    width: 30px;
+    height: 22px;
+    margin-left: 2px;
+  }
+
+  .opp-card-back-mini {
+    width: 14px;
+    height: 20px;
+  }
+
+  .opp-card-back-mini::before {
+    border-radius: 1px;
+  }
+
+  .opp-card-back-mini::after {
+    display: none; /* too small to render letters */
+  }
+
+  .opp-card-back-mini:nth-child(2) { left: 5px; }
+  .opp-card-back-mini:nth-child(3) { left: 10px; }
+  .opp-card-back-mini:nth-child(4) { left: 15px; }
+
+  .opponent-slot.pos-left { left: -5px; }
+  .opponent-slot.pos-right { right: -5px; }
+  .opponent-slot.pos-top { top: -20px; }
+  .opponent-slot.pos-top-left { top: -15px; left: 4%; }
+  .opponent-slot.pos-top-right { top: -15px; right: 4%; }
+
+  /* Player HUD info block on mobile */
+  .player-hud-info {
+    bottom: 110px;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .hud-avatar {
+    width: 22px;
+    height: 22px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+  }
+
+  .hand-scroll {
+    height: 110px;
+  }
+
+  .uno-card {
+    bottom: 0px;
   }
 }
 

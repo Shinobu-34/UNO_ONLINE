@@ -84,38 +84,49 @@
       <button id="game-leave-btn" class="btn btn-ghost btn-sm">🚪 Leave Game</button>
     </div>
 
-    <!-- Top bar: other players -->
-    <div class="game-top-bar" id="opponents-bar">
-      <!-- Populated dynamically -->
-    </div>
-
-    <!-- Direction indicator -->
-    <div class="direction-indicator" id="direction-indicator">
-      <svg viewBox="0 0 60 60" class="direction-svg">
-        <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3" />
-        <path id="direction-arrow" d="M 30 8 A 22 22 0 1 1 8 30" fill="none" stroke="currentColor" stroke-width="3"
-          stroke-linecap="round" />
-        <polygon id="direction-head" points="5,22 8,30 14,24" fill="currentColor" />
-      </svg>
-    </div>
-
-    <!-- Center table area -->
-    <div class="table-center">
-      <div class="pile-area">
-        <div class="draw-pile" id="draw-pile">
-          <div class="card-back">
-            <div class="card-back-inner">UNO</div>
+    <!-- Dynamic 3D/2D Play Table Layout -->
+    <div class="table-area-wrapper">
+      <div class="uno-table">
+        <div class="table-inner-mat">
+          
+          <!-- Center table pile area -->
+          <div class="table-center">
+            <div class="pile-area">
+              <div class="draw-pile" id="draw-pile">
+                <div class="card-back">
+                  <div class="card-back-inner">UNO</div>
+                </div>
+                <span class="pile-count" id="draw-count">0</span>
+                <div class="pile-label">Draw Pile<br><span class="deck-sub">DECK</span></div>
+              </div>
+              <div class="discard-area">
+                <div id="discard-pile" class="discard-pile">
+                  <!-- Top card rendered here -->
+                </div>
+                <div class="current-color-ring" id="color-ring"></div>
+                <div class="pile-label">Discard Pile</div>
+              </div>
+            </div>
+            <div class="turn-label" id="turn-label">Your Turn!</div>
           </div>
-          <span class="pile-count" id="draw-count">0</span>
+
+          <!-- Direction indicator centered behind or inside mat -->
+          <div class="direction-indicator" id="direction-indicator">
+            <svg viewBox="0 0 60 60" class="direction-svg">
+              <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3" />
+              <path id="direction-arrow" d="M 30 8 A 22 22 0 1 1 8 30" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round" />
+              <polygon id="direction-head" points="5,22 8,30 14,24" fill="currentColor" />
+            </svg>
+          </div>
+
         </div>
-        <div class="discard-area">
-          <div id="discard-pile" class="discard-pile">
-            <!-- Top card rendered here -->
-          </div>
-          <div class="current-color-ring" id="color-ring"></div>
+
+        <!-- Opponent Slots distributed around the table mat -->
+        <div class="opponents-slots-container" id="opponents-bar">
+          <!-- Populated dynamically: left, top-left, top, top-right, right opponents -->
         </div>
       </div>
-      <div class="turn-label" id="turn-label">Your Turn!</div>
     </div>
 
     <!-- Action log -->
@@ -139,10 +150,19 @@
       </div>
     </div>
 
-    <!-- Player hand -->
-    <div class="hand-area">
-      <div class="hand-scroll" id="player-hand">
-        <!-- Cards rendered here -->
+    <!-- You / Bottom Player HUD -->
+    <div class="player-hud">
+      <div class="player-hud-info">
+        <div class="hud-avatar" id="my-hud-avatar">🤖</div>
+        <div class="hud-meta">
+          <span class="hud-name">You</span>
+          <span class="hud-score" id="my-hud-score">Score: 0</span>
+        </div>
+      </div>
+      <div class="hand-area">
+        <div class="hand-scroll" id="player-hand">
+          <!-- Cards rendered here -->
+        </div>
       </div>
     </div>
   </div>

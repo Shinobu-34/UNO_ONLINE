@@ -158,30 +158,7 @@
       });
     }
 
-    // 2. Gravity Card Rain Foreground Layer
-    const CARD_COUNT = 36;
-    const cards = [];
-    const colors = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7']; // Red, Blue, Green, Yellow, Purple (Wild)
-    const symbols = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '⊘', '⟲', '+2', 'W', '+4'];
 
-    for (let i = 0; i < CARD_COUNT; i++) {
-      cards.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height - 40,
-        vx: (Math.random() - 0.5) * 2,
-        vy: Math.random() * 2 + 1,
-        angle: Math.random() * Math.PI * 2,
-        va: (Math.random() - 0.5) * 0.05,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        symbol: symbols[Math.floor(Math.random() * symbols.length)],
-        width: 20,
-        height: 30
-      });
-    }
-
-    const gravity = 0.13;
-    const airResistance = 0.99;
-    const restitution = 0.6; // bounciness
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -323,132 +300,7 @@
       ctx.stroke();
       ctx.restore();
 
-      // ──────────────────────────────────────────────────────────
-      // LAYER 3: Foreground Gravity Card Rain
-      // ──────────────────────────────────────────────────────────
-      for (const card of cards) {
-        // Physics update
-        card.vy += gravity;
-        card.vx *= airResistance;
-        card.vy *= airResistance;
 
-        card.x += card.vx;
-        card.y += card.vy;
-        card.angle += card.va;
-
-        // Collision with Mouse Cursor (Realistic 2D Bounce)
-        const dx = card.x - mouse.x;
-        const dy = card.y - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < mouseRadius) {
-          const nx = dx / dist; // Collision normal X
-          const ny = dy / dist; // Collision normal Y
-
-          // Push out of cursor circle to prevent stuck cards
-          card.x = mouse.x + nx * mouseRadius;
-          card.y = mouse.y + ny * mouseRadius;
-
-          // Relative velocity between card and moving mouse
-          const rvx = card.vx - mouse.vx;
-          const rvy = card.vy - mouse.vy;
-
-          // Dot product of relative velocity and normal
-          const velAlongNormal = rvx * nx + rvy * ny;
-
-          // Only bounce if they are moving towards each other
-          if (velAlongNormal < 0) {
-            let impulse = -(1 + restitution) * velAlongNormal;
-
-            // Adjust card velocity
-            card.vx += impulse * nx + mouse.vx * 0.45;
-            card.vy += impulse * ny + mouse.vy * 0.45;
-
-            // Add organic spinning force depending on the impact
-            card.va += (Math.random() - 0.5) * 0.15 + (mouse.vx * 0.01);
-          }
-        }
-
-        // Clamp speed to prevent glitchy teleportation
-        const speed = Math.sqrt(card.vx * card.vx + card.vy * card.vy);
-        const maxSpeed = 14;
-        if (speed > maxSpeed) {
-          card.vx = (card.vx / speed) * maxSpeed;
-          card.vy = (card.vy / speed) * maxSpeed;
-        }
-
-        // Keep horizontal boundaries wrapping
-        const boundPad = 25;
-        if (card.x < -boundPad) card.x = canvas.width + boundPad - 4;
-        if (card.x > canvas.width + boundPad) card.x = -boundPad + 4;
-
-        // Reset if goes off-screen bottom
-        if (card.y > canvas.height + 40) {
-          card.y = -40;
-          card.x = Math.random() * canvas.width;
-          card.vx = (Math.random() - 0.5) * 2;
-          card.vy = Math.random() * 1.5 + 0.8;
-          card.va = (Math.random() - 0.5) * 0.05;
-        }
-
-        // Draw Card Particle
-        ctx.save();
-        ctx.translate(card.x, card.y);
-        ctx.rotate(card.angle);
-
-        // Card shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetY = 3;
-
-        // Card body rounded rectangle
-        ctx.beginPath();
-        const r = 3;
-        const w = card.width;
-        const h = card.height;
-        if (ctx.roundRect) {
-          ctx.roundRect(-w / 2, -h / 2, w, h, r);
-        } else {
-          const x = -w / 2;
-          const y = -h / 2;
-          ctx.moveTo(x + r, y);
-          ctx.lineTo(x + w - r, y);
-          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-          ctx.lineTo(x + w, y + h - r);
-          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-          ctx.lineTo(x + r, y + h);
-          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-          ctx.lineTo(x, y + r);
-          ctx.quadraticCurveTo(x, y, x + r, y);
-        }
-        ctx.fillStyle = card.color;
-        ctx.fill();
-
-        // Card border stroke
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.lineWidth = 1.0;
-        ctx.stroke();
-
-        ctx.shadowColor = 'transparent';
-
-        // White tilted oval in center
-        ctx.save();
-        ctx.rotate(-Math.PI / 8);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, w * 0.32, h * 0.38, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // Card symbol text
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `900 10px var(--font-heading)`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(card.symbol, 0, 0);
-
-        ctx.restore();
-      }
 
       requestAnimationFrame(draw);
     }
@@ -627,8 +479,7 @@
       const avatar = document.createElement('div');
       avatar.className = 'player-avatar';
       avatar.style.background = CardRenderer.getAvatarColor(i);
-      avatar.textContent = CardRenderer.getInitials(p.name);
-
+      avatar.textContent = CardRenderer.getAvatarEmoji(i);
       const name = document.createElement('div');
       name.className = 'player-name';
       name.textContent = p.name + (p.id === myId ? ' (You)' : '');
@@ -760,45 +611,121 @@
       drawnPrompt.style.display = 'none';
       drawnCardData = null;
     }
+
+    // Update bottom player HUD metadata dynamically
+    if (me) {
+      const meIndex = state.players.findIndex(p => p.id === myId);
+      const hudAvatar = $('#my-hud-avatar');
+      if (hudAvatar) {
+        hudAvatar.style.background = CardRenderer.getAvatarColor(meIndex);
+        hudAvatar.textContent = CardRenderer.getAvatarEmoji(meIndex);
+      }
+
+      const hudName = $('.hud-name');
+      if (hudName) {
+        hudName.textContent = me.name + ' (You)';
+      }
+      const hudScore = $('#my-hud-score');
+      if (hudScore) {
+        hudScore.textContent = `Score: ${me.score || 0}`;
+      }
+    }
+  }
+
+  function getSlotClass(index, total) {
+    if (total === 1) {
+      return 'pos-top';
+    }
+    if (total === 2) {
+      return index === 0 ? 'pos-left' : 'pos-right';
+    }
+    if (total === 3) {
+      const classes = ['pos-left', 'pos-top', 'pos-right'];
+      return classes[index];
+    }
+    if (total === 4) {
+      const classes = ['pos-left', 'pos-top-left', 'pos-top-right', 'pos-right'];
+      return classes[index];
+    }
+    // Up to 7 players
+    const classes = ['pos-left', 'pos-top-left', 'pos-top', 'pos-top-right', 'pos-right', 'pos-bottom-left', 'pos-bottom-right'];
+    return classes[index % classes.length];
   }
 
   function renderOpponents(state) {
     opponentsBar.innerHTML = '';
-    const playerIndex = {};
-    state.players.forEach((p, i) => playerIndex[p.id] = i);
 
-    state.players.forEach((p, i) => {
-      if (p.id === myId) return; // skip self
+    // Filter out self
+    const opponentList = state.players.filter(p => p.id !== myId);
+    const totalOpponents = opponentList.length;
 
-      const chip = document.createElement('div');
-      chip.className = 'opponent-chip';
-      if (p.id === state.currentPlayerId) chip.classList.add('active-turn');
-      if (!p.connected) chip.classList.add('disconnected');
+    opponentList.forEach((p, index) => {
+      // Find original index in state.players to preserve their avatar colors
+      const originalIndex = state.players.findIndex(player => player.id === p.id);
 
+      const slot = document.createElement('div');
+      slot.className = 'opponent-slot';
+
+      // Get positioning class based on dynamic opponent count
+      const slotClass = getSlotClass(index, totalOpponents);
+      slot.classList.add(slotClass);
+
+      if (p.id === state.currentPlayerId) slot.classList.add('active-turn');
+      if (!p.connected) slot.classList.add('disconnected');
+
+      // 1. Avatar
       const avatar = document.createElement('div');
       avatar.className = 'opp-avatar';
-      avatar.style.background = CardRenderer.getAvatarColor(i);
-      avatar.textContent = CardRenderer.getInitials(p.name);
+      avatar.style.background = CardRenderer.getAvatarColor(originalIndex);
+      avatar.textContent = CardRenderer.getAvatarEmoji(originalIndex);
 
-      const nameSpan = document.createElement('span');
+      // 2. Info container (Name, Score, Card Count)
+      const info = document.createElement('div');
+      info.className = 'opp-info';
+
+      const nameSpan = document.createElement('div');
+      nameSpan.className = 'opp-name';
       nameSpan.textContent = p.name;
 
-      const count = document.createElement('span');
-      count.className = 'opp-count';
-      count.textContent = '🃏 ' + p.cardCount;
+      const scoreSpan = document.createElement('div');
+      scoreSpan.className = 'opp-score';
+      scoreSpan.textContent = `Score: ${p.score || 0}`;
 
-      chip.appendChild(avatar);
-      chip.appendChild(nameSpan);
-      chip.appendChild(count);
+      const cardCountText = document.createElement('div');
+      cardCountText.className = 'opp-card-count-text';
+      cardCountText.textContent = `${p.cardCount} cards`;
+
+      info.appendChild(nameSpan);
+      info.appendChild(scoreSpan);
+      info.appendChild(cardCountText);
+
+      // 3. Card Fan Visual Preview (overlapping card backs)
+      const cardFan = document.createElement('div');
+      cardFan.className = 'opp-card-fan';
+
+      const visibleCardsCount = Math.min(4, p.cardCount);
+      for (let c = 0; c < visibleCardsCount; c++) {
+        const miniCard = document.createElement('div');
+        miniCard.className = 'opp-card-back-mini';
+
+        // Fan angles based on count
+        const rot = (c - (visibleCardsCount - 1) / 2) * 10;
+        miniCard.style.transform = `rotate(${rot}deg)`;
+        cardFan.appendChild(miniCard);
+      }
+
+      slot.appendChild(avatar);
+      slot.appendChild(info);
+      slot.appendChild(cardFan);
 
       if (p.calledUno && p.cardCount === 1) {
         const unoBadge = document.createElement('span');
         unoBadge.className = 'opp-uno-badge';
         unoBadge.textContent = 'UNO';
-        chip.appendChild(unoBadge);
+        slot.appendChild(unoBadge);
       }
 
-      opponentsBar.appendChild(chip);
+      opponentsBar.appendChild(slot);
     });
   }
 
@@ -835,6 +762,22 @@
       return va - vb;
     });
 
+    const totalCards = sorted.length;
+    const cardWidth = window.innerWidth < 480 ? 62 : (window.innerWidth < 768 ? 72 : 90);
+    const maxHandWidth = Math.min(window.innerWidth - 60, 800);
+    
+    let spacing = -20; // default overlap in pixels
+    if (totalCards > 1) {
+      const neededWidth = totalCards * cardWidth + (totalCards - 1) * spacing;
+      if (neededWidth > maxHandWidth) {
+        spacing = (maxHandWidth - totalCards * cardWidth) / (totalCards - 1);
+      }
+    }
+
+    const mid = (totalCards - 1) / 2;
+    const maxAngle = Math.min(25, totalCards * 2.5); 
+    const angleStep = totalCards > 1 ? (maxAngle * 2) / (totalCards - 1) : 0;
+
     sorted.forEach((card, i) => {
       const canPlay = playable.has(card.id);
       const el = CardRenderer.createCard(card, {
@@ -842,6 +785,20 @@
         onClick: canPlay ? () => handlePlayCard(card) : null
       });
       el.style.zIndex = i;
+      
+      let angle = 0;
+      if (totalCards > 1) {
+        angle = -maxAngle + i * angleStep;
+      }
+      
+      const offset = i - mid;
+      const translateValY = Math.abs(offset) * Math.abs(offset) * 2.0;
+      const cardCenterOffset = offset * (cardWidth + spacing);
+      
+      el.style.setProperty('--card-rot', `${angle}deg`);
+      el.style.setProperty('--card-tx', `${cardCenterOffset}px`);
+      el.style.setProperty('--card-ty', `${translateValY}px`);
+      
       playerHand.appendChild(el);
     });
   }

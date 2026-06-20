@@ -129,6 +129,10 @@ const CardRenderer = (() => {
     return el;
   }
 
+  const AVATAR_EMOJIS = [
+    '👦', '🐱', '👩‍🚀', '🤖', '🦊', '🐼', '👾', '🦄'
+  ];
+
   /**
    * Get an avatar color for a player index
    */
@@ -143,5 +147,12 @@ const CardRenderer = (() => {
     return name.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
   }
 
-  return { createCard, createCardBack, getAvatarColor, getInitials };
+  /**
+   * Get an avatar emoji for a player index
+   */
+  function getAvatarEmoji(index) {
+    return AVATAR_EMOJIS[index % AVATAR_EMOJIS.length];
+  }
+
+  return { createCard, createCardBack, getAvatarColor, getInitials, getAvatarEmoji };
 })();
