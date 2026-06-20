@@ -53,10 +53,10 @@ class UnoGame {
   }
 
   // ── Player management ────────────────────────────────
-  addPlayer(id, name, ws) {
+  addPlayer(id, name, ws, pfp) {
     if (this.players.length >= 8) throw new Error('Room is full (max 8 players)');
     if (this.state !== 'lobby') throw new Error('Game already in progress');
-    const player = { id, name, ws, hand: [], calledUno: false, connected: true };
+    const player = { id, name, ws, hand: [], calledUno: false, connected: true, pfp: pfp || null };
     this.players.push(player);
     if (this.players.length === 1) this.hostId = id;
     return player;
@@ -559,7 +559,8 @@ class UnoGame {
         cardCount: p.hand.length,
         calledUno: p.calledUno,
         connected: p.connected,
-        isHost: p.id === this.hostId
+        isHost: p.id === this.hostId,
+        pfp: p.pfp
       })),
       myId: player.id,
       drawPileCount: this.deck.length,
@@ -618,7 +619,8 @@ class UnoGame {
         id: p.id,
         name: p.name,
         isHost: p.id === this.hostId,
-        connected: p.connected
+        connected: p.connected,
+        pfp: p.pfp
       })),
       hostId: this.hostId
     };
@@ -667,7 +669,7 @@ wss.on('connection', (ws) => {
           const code = generateRoomCode();
           const pid = generatePlayerId();
           const g = new UnoGame(code);
-          g.addPlayer(pid, (msg.playerName || 'Player').substring(0, 20), ws);
+          g.addPlayer(pid, (msg.playerName || 'Player').substring(0, 20), ws, msg.pfp || null);
           rooms.set(code, g);
           playerRooms.set(ws, { roomCode: code, playerId: pid });
           send(ws, { type: 'roomCreated', roomCode: code, playerId: pid });
@@ -680,7 +682,7 @@ wss.on('connection', (ws) => {
           const g = rooms.get(code);
           if (!g) return send(ws, { type: 'error', message: 'Room not found. Check the code and try again.' });
           const pid = generatePlayerId();
-          g.addPlayer(pid, (msg.playerName || 'Player').substring(0, 20), ws);
+          g.addPlayer(pid, (msg.playerName || 'Player').substring(0, 20), ws, msg.pfp || null);
           playerRooms.set(ws, { roomCode: code, playerId: pid });
           send(ws, { type: 'roomJoined', roomCode: code, playerId: pid });
           g.broadcastLobby();

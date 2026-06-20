@@ -14,6 +14,16 @@
   let pendingDrawnWild = false;   // drawn card is wild, waiting for color pick
   let drawnCardData = null;       // { card, canPlay }
 
+  // Profile and PFP Crop State
+  let customPfp = null;           // base64 cropped pfp data URI
+  let cropImage = null;           // Image object loaded for cropping
+  let cropScale = 1.0;            // zoom scale of cropped image
+  let cropX = 0;                  // image viewport X offset
+  let cropY = 0;                  // image viewport Y offset
+  let isDraggingCrop = false;     // drag panning trigger
+  let dragStartX = 0;             // drag pan coordinate history X
+  let dragStartY = 0;             // drag pan coordinate history Y
+
   // ── DOM References ─────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -25,11 +35,22 @@
     victory: $('#victory-screen')
   };
 
-  // Home
+  // Home & Profile Setup
   const nameInput = $('#player-name-input');
   const createRoomBtn = $('#create-room-btn');
   const codeInput = $('#room-code-input');
   const joinRoomBtn = $('#join-room-btn');
+  const pfpUploadInput = $('#pfp-upload-input');
+  const avatarPreviewBtn = $('#avatar-preview-btn');
+  const avatarPreviewImg = $('#avatar-preview-img');
+  const saveProfileBtn = $('#save-profile-btn');
+
+  // Crop Modal
+  const cropModal = $('#crop-modal');
+  const cropCanvas = $('#crop-canvas');
+  const cropZoomSlider = $('#crop-zoom-slider');
+  const cropCancelBtn = $('#crop-cancel-btn');
+  const cropSaveBtn = $('#crop-save-btn');
 
   // Lobby
   const lobbyCode = $('#lobby-room-code');
@@ -467,6 +488,7 @@
   }
 
   function renderLobby(data) {
+    console.log("🎲 renderLobby received data:", data.players.map(p => ({ id: p.id, name: p.name, hasPfp: !!p.pfp })));
     // Check if I'm host
     isHost = data.hostId === myId;
 
@@ -478,8 +500,17 @@
 
       const avatar = document.createElement('div');
       avatar.className = 'player-avatar';
-      avatar.style.background = CardRenderer.getAvatarColor(i);
-      avatar.textContent = CardRenderer.getAvatarEmoji(i);
+      if (p.pfp) {
+        avatar.style.background = 'transparent';
+        avatar.style.backgroundImage = `url("${p.pfp}")`;
+        avatar.style.backgroundSize = 'cover';
+        avatar.style.backgroundPosition = 'center';
+        avatar.textContent = '';
+      } else {
+        avatar.style.background = CardRenderer.getAvatarColor(i);
+        avatar.style.backgroundImage = '';
+        avatar.textContent = CardRenderer.getAvatarEmoji(i);
+      }
       const name = document.createElement('div');
       name.className = 'player-name';
       name.textContent = p.name + (p.id === myId ? ' (You)' : '');
@@ -524,6 +555,7 @@
 
   // ── Render Game ───────────────────────────────────────
   function renderGame(state) {
+    console.log("🎮 renderGame received state for players:", state.players.map(p => ({ id: p.id, name: p.name, hasPfp: !!p.pfp })));
     showScreen('game');
     $('#game-room-code-val').textContent = roomCode;
 
@@ -617,8 +649,17 @@
       const meIndex = state.players.findIndex(p => p.id === myId);
       const hudAvatar = $('#my-hud-avatar');
       if (hudAvatar) {
-        hudAvatar.style.background = CardRenderer.getAvatarColor(meIndex);
-        hudAvatar.textContent = CardRenderer.getAvatarEmoji(meIndex);
+        if (me && me.pfp) {
+          hudAvatar.style.background = 'transparent';
+          hudAvatar.style.backgroundImage = `url("${me.pfp}")`;
+          hudAvatar.style.backgroundSize = 'cover';
+          hudAvatar.style.backgroundPosition = 'center';
+          hudAvatar.textContent = '';
+        } else {
+          hudAvatar.style.background = CardRenderer.getAvatarColor(meIndex);
+          hudAvatar.style.backgroundImage = '';
+          hudAvatar.textContent = CardRenderer.getAvatarEmoji(meIndex);
+        }
       }
 
       const hudName = $('.hud-name');
@@ -676,8 +717,17 @@
       // 1. Avatar
       const avatar = document.createElement('div');
       avatar.className = 'opp-avatar';
-      avatar.style.background = CardRenderer.getAvatarColor(originalIndex);
-      avatar.textContent = CardRenderer.getAvatarEmoji(originalIndex);
+      if (p.pfp) {
+        avatar.style.background = 'transparent';
+        avatar.style.backgroundImage = `url("${p.pfp}")`;
+        avatar.style.backgroundSize = 'cover';
+        avatar.style.backgroundPosition = 'center';
+        avatar.textContent = '';
+      } else {
+        avatar.style.background = CardRenderer.getAvatarColor(originalIndex);
+        avatar.style.backgroundImage = '';
+        avatar.textContent = CardRenderer.getAvatarEmoji(originalIndex);
+      }
 
       // 2. Info container (Name, Score, Card Count)
       const info = document.createElement('div');
@@ -879,7 +929,8 @@
       nameInput.focus();
       return;
     }
-    Network.send({ type: 'createRoom', playerName: name });
+    console.log("🚀 Sending createRoom! customPfp present?:", !!customPfp);
+    Network.send({ type: 'createRoom', playerName: name, pfp: customPfp });
   });
 
   // Home — Join Room
@@ -896,7 +947,8 @@
       codeInput.focus();
       return;
     }
-    Network.send({ type: 'joinRoom', playerName: name, roomCode: code });
+    console.log("🚀 Sending joinRoom! customPfp present?:", !!customPfp);
+    Network.send({ type: 'joinRoom', playerName: name, roomCode: code, pfp: customPfp });
   });
 
   // Allow Enter key on inputs
@@ -1014,9 +1066,185 @@
     leaveGameAction();
   });
 
+  // ── Profile and Image Cropping Implementation ───────────
+  function saveProfileData() {
+    const name = nameInput.value.trim();
+    if (!name) {
+      showToast('Please enter your name first');
+      return;
+    }
+    localStorage.setItem('uno_player_name', name);
+    if (customPfp) {
+      localStorage.setItem('uno_player_pfp', customPfp);
+    } else {
+      localStorage.removeItem('uno_player_pfp');
+    }
+    showToast('Profile saved successfully! 💾');
+  }
+
+  function loadProfileData() {
+    const savedName = localStorage.getItem('uno_player_name');
+    if (savedName) {
+      nameInput.value = savedName;
+    }
+    const savedPfp = localStorage.getItem('uno_player_pfp');
+    if (savedPfp) {
+      customPfp = savedPfp;
+      avatarPreviewImg.textContent = '';
+      avatarPreviewImg.style.backgroundImage = `url(${savedPfp})`;
+      avatarPreviewImg.style.backgroundSize = 'cover';
+      avatarPreviewImg.style.backgroundPosition = 'center';
+    }
+  }
+
+  // Draw the image on the crop canvas (scaled and translated)
+  function drawCropCanvas() {
+    const ctx = cropCanvas.getContext('2d');
+    ctx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    if (!cropImage) return;
+
+    const canvasW = cropCanvas.width;
+    const canvasH = cropCanvas.height;
+
+    const baseWidth = cropImage.width;
+    const baseHeight = cropImage.height;
+    const baseRatio = baseWidth / baseHeight;
+
+    let drawW, drawH;
+    if (baseRatio > 1) {
+      drawH = canvasH * cropScale;
+      drawW = drawH * baseRatio;
+    } else {
+      drawW = canvasW * cropScale;
+      drawH = drawW / baseRatio;
+    }
+
+    const x = (canvasW - drawW) / 2 + cropX;
+    const y = (canvasH - drawH) / 2 + cropY;
+
+    ctx.drawImage(cropImage, x, y, drawW, drawH);
+  }
+
+  // Set up Crop canvas event listeners
+  function initCropEvents() {
+    avatarPreviewBtn.addEventListener('click', () => {
+      pfpUploadInput.click();
+    });
+
+    pfpUploadInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        cropImage = new Image();
+        cropImage.onload = () => {
+          // Reset crop state variables
+          cropScale = 1.0;
+          cropX = 0;
+          cropY = 0;
+          cropZoomSlider.value = 1.0;
+          
+          cropModal.style.display = 'flex';
+          drawCropCanvas();
+        };
+        cropImage.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    saveProfileBtn.addEventListener('click', () => {
+      saveProfileData();
+    });
+
+    cropZoomSlider.addEventListener('input', (e) => {
+      cropScale = parseFloat(e.target.value);
+      drawCropCanvas();
+    });
+
+    // Drag-to-pan implementation
+    const getCoords = (e) => {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    };
+
+    const dragStart = (e) => {
+      if (!cropImage) return;
+      isDraggingCrop = true;
+      const coords = getCoords(e);
+      dragStartX = coords.x - cropX;
+      dragStartY = coords.y - cropY;
+      e.preventDefault();
+    };
+
+    const dragMove = (e) => {
+      if (!isDraggingCrop || !cropImage) return;
+      const coords = getCoords(e);
+      cropX = coords.x - dragStartX;
+      cropY = coords.y - dragStartY;
+      drawCropCanvas();
+      e.preventDefault();
+    };
+
+    const dragEnd = () => {
+      isDraggingCrop = false;
+    };
+
+    // Mouse listeners
+    cropCanvas.addEventListener('mousedown', dragStart);
+    window.addEventListener('mousemove', dragMove);
+    window.addEventListener('mouseup', dragEnd);
+
+    // Touch listeners
+    cropCanvas.addEventListener('touchstart', dragStart, { passive: false });
+    window.addEventListener('touchmove', dragMove, { passive: false });
+    window.addEventListener('touchend', dragEnd);
+
+    // Cancel
+    cropCancelBtn.addEventListener('click', () => {
+      cropModal.style.display = 'none';
+      pfpUploadInput.value = ''; // clear input
+    });
+
+    // Save cropped area
+    cropSaveBtn.addEventListener('click', () => {
+      if (!cropImage) return;
+
+      // Extract center 150x150 square matching the circular frame
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 150;
+      tempCanvas.height = 150;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      // Draw the center portion (75, 75) of width/height 150 from cropCanvas
+      tempCtx.drawImage(cropCanvas, 75, 75, 150, 150, 0, 0, 150, 150);
+
+      // Convert to Base64 data URL
+      const croppedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85);
+
+      // Save to local pfp state variable
+      customPfp = croppedBase64;
+
+      // Update avatar preview
+      avatarPreviewImg.textContent = '';
+      avatarPreviewImg.style.backgroundImage = `url(${customPfp})`;
+      avatarPreviewImg.style.backgroundSize = 'cover';
+      avatarPreviewImg.style.backgroundPosition = 'center';
+
+      cropModal.style.display = 'none';
+      pfpUploadInput.value = '';
+      
+      showToast('Avatar cropped! Click Save to remember it. 💾');
+    });
+  }
+
   // ── Initialize ────────────────────────────────────────
   function init() {
     initParticles();
+    loadProfileData();
+    initCropEvents();
     Network.connect(onMessage);
     showScreen('home');
 
