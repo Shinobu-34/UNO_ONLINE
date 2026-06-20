@@ -1,16 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Play UNO online with friends! Create a room, share the code, and enjoy the classic card game with 2-8 players.">
+  <meta name="description"
+    content="Play UNO online with friends! Create a room, share the code, and enjoy the classic card game with 2-8 players.">
   <title>UNO Online — Play with Friends</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
 </head>
+
 <body>
 
   <!-- ═══ Particle Canvas Background ═══ -->
@@ -39,7 +45,8 @@
         <div class="divider"><span>or join a friend</span></div>
 
         <div class="join-row">
-          <input type="text" id="room-code-input" placeholder="Room Code" maxlength="4" autocomplete="off" class="code-input">
+          <input type="text" id="room-code-input" placeholder="Room Code" maxlength="4" autocomplete="off"
+            class="code-input">
           <button id="join-room-btn" class="btn btn-secondary">Join</button>
         </div>
       </div>
@@ -85,9 +92,10 @@
     <!-- Direction indicator -->
     <div class="direction-indicator" id="direction-indicator">
       <svg viewBox="0 0 60 60" class="direction-svg">
-        <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-        <path id="direction-arrow" d="M 30 8 A 22 22 0 1 1 8 30" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-        <polygon id="direction-head" points="5,22 8,30 14,24" fill="currentColor"/>
+        <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3" />
+        <path id="direction-arrow" d="M 30 8 A 22 22 0 1 1 8 30" fill="none" stroke="currentColor" stroke-width="3"
+          stroke-linecap="round" />
+        <polygon id="direction-head" points="5,22 8,30 14,24" fill="currentColor" />
       </svg>
     </div>
 
@@ -158,10 +166,11 @@
       <div class="modal-badge-warn">🚨 Wild 4 Alert</div>
       <h3 id="challenge-modal-title">Challenge Wild Draw 4?</h3>
       <p id="challenge-modal-desc">A Wild Draw 4 has been played against you!</p>
-      
+
       <div class="challenge-info-box">
         <div class="info-item">
-          <strong>⚔️ Challenge:</strong> If they had matching color in hand, they draw 4 cards instead. If they were legal, you draw 6 cards & lose turn.
+          <strong>⚔️ Challenge:</strong> If they had matching color in hand, they draw 4 cards instead. If they were
+          legal, you draw 6 cards & lose turn.
         </div>
         <div class="info-item">
           <strong>💤 Decline:</strong> You draw 4 cards and lose your turn.
@@ -212,4 +221,5 @@
   <script src="network.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

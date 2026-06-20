@@ -116,7 +116,7 @@ class UnoGame {
     if (idx === -1) return;
 
     const kickedPlayer = this.players[idx];
-    
+
     // Send a message to the kicked player so they know they were kicked and return to home screen
     if (kickedPlayer.ws) {
       send(kickedPlayer.ws, { type: 'kicked', reason: 'You have been removed from the room by the host.' });
@@ -124,7 +124,7 @@ class UnoGame {
 
     // Remove them from the list
     this.players.splice(idx, 1);
-    
+
     this.broadcastNotification(`${kickedPlayer.name} was removed from the room.`);
     this.broadcastLobby();
   }

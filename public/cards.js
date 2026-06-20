@@ -5,19 +5,19 @@
 const CardRenderer = (() => {
 
   const SYMBOLS = {
-    skip:    '⊘',
+    skip: '⊘',
     reverse: '⟲',
-    draw2:   '+2',
-    wild:    '',
-    wild4:   '+4'
+    draw2: '+2',
+    wild: '',
+    wild4: '+4'
   };
 
   const LABELS = {
-    skip:    'SKIP',
+    skip: 'SKIP',
     reverse: 'REV',
-    draw2:   '+2',
-    wild:    'WILD',
-    wild4:   '+4'
+    draw2: '+2',
+    wild: 'WILD',
+    wild4: '+4'
   };
 
   const AVATAR_COLORS = [
