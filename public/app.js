@@ -60,6 +60,16 @@
   // Color modal
   const colorModal     = $('#color-modal');
 
+  // Challenge modal
+  const challengeModal = $('#challenge-modal');
+  const challengeDesc  = $('#challenge-modal-desc');
+  const challengeTimer = $('#challenge-timer');
+  const challengeYesBtn = $('#challenge-yes-btn');
+  const challengeNoBtn = $('#challenge-no-btn');
+
+  let challengeCountdownTimer = null;
+  let challengeSecondsLeft = 10;
+
   // Victory
   const winnerName     = $('#winner-name');
   const winnerScore    = $('#winner-score');
@@ -146,6 +156,31 @@
       piece.style.width = (Math.random() * 8 + 6) + 'px';
       piece.style.height = (Math.random() * 8 + 6) + 'px';
       wrapper.appendChild(piece);
+    }
+  }
+
+  // ── Challenge Timer ───────────────────────────────────
+  function startChallengeTimer() {
+    if (challengeCountdownTimer) return; // already running
+    challengeSecondsLeft = 10;
+    challengeTimer.textContent = `${challengeSecondsLeft}s`;
+    
+    challengeCountdownTimer = setInterval(() => {
+      challengeSecondsLeft--;
+      if (challengeSecondsLeft <= 0) {
+        challengeTimer.textContent = '0s';
+        stopChallengeTimer();
+        challengeModal.style.display = 'none';
+      } else {
+        challengeTimer.textContent = `${challengeSecondsLeft}s`;
+      }
+    }, 1000);
+  }
+
+  function stopChallengeTimer() {
+    if (challengeCountdownTimer) {
+      clearInterval(challengeCountdownTimer);
+      challengeCountdownTimer = null;
     }
   }
 
@@ -259,14 +294,40 @@
     // Color ring
     colorRing.className = 'current-color-ring ring-' + state.topColor;
 
-    // Turn label
-    if (state.isMyTurn) {
-      turnLabel.textContent = state.hasDrawnCard ? 'Play or keep your drawn card' : 'Your Turn!';
-      turnLabel.classList.add('my-turn');
+    // Turn label & Wild 4 Challenge Modal
+    if (state.pendingWild4) {
+      if (state.pendingWild4.victimId === myId) {
+        // I am the victim! Show the challenge dialog.
+        challengeModal.style.display = 'flex';
+        challengeDesc.textContent = `${state.pendingWild4.playerName} played a Wild Draw 4 card against you! Do you want to challenge?`;
+        
+        // Start countdown timer if not already running
+        startChallengeTimer();
+        turnLabel.textContent = 'Challenge or Decline the Wild Draw 4!';
+        turnLabel.classList.add('my-turn');
+      } else {
+        // Someone else is the victim. Hide the modal and update turn label.
+        challengeModal.style.display = 'none';
+        stopChallengeTimer();
+        const victimPlayer = state.players.find(p => p.id === state.pendingWild4.victimId);
+        const victimName = victimPlayer ? victimPlayer.name : 'opponent';
+        turnLabel.textContent = `Waiting for ${victimName} to decide on Wild 4 challenge...`;
+        turnLabel.classList.add('my-turn');
+      }
     } else {
-      const current = state.players.find(p => p.id === state.currentPlayerId);
-      turnLabel.textContent = current ? `${current.name}'s turn` : 'Waiting...';
-      turnLabel.classList.remove('my-turn');
+      // No pending Wild 4, hide modal and stop timer
+      challengeModal.style.display = 'none';
+      stopChallengeTimer();
+
+      // Normal turn label logic
+      if (state.isMyTurn) {
+        turnLabel.textContent = state.hasDrawnCard ? 'Play or keep your drawn card' : 'Your Turn!';
+        turnLabel.classList.add('my-turn');
+      } else {
+        const current = state.players.find(p => p.id === state.currentPlayerId);
+        turnLabel.textContent = current ? `${current.name}'s turn` : 'Waiting...';
+        turnLabel.classList.remove('my-turn');
+      }
     }
 
     // Direction
@@ -507,6 +568,7 @@
     myId = null;
     roomCode = null;
     isHost = false;
+    stopChallengeTimer();
     showScreen('home');
     // Reconnect the WebSocket for future use
     setTimeout(() => Network.connect(onMessage), 500);
@@ -565,6 +627,19 @@
     });
   });
 
+  // Game — Challenge Wild Draw 4
+  challengeYesBtn.addEventListener('click', () => {
+    Network.send({ type: 'challengeWild4' });
+    challengeModal.style.display = 'none';
+    stopChallengeTimer();
+  });
+
+  challengeNoBtn.addEventListener('click', () => {
+    Network.send({ type: 'declineWild4' });
+    challengeModal.style.display = 'none';
+    stopChallengeTimer();
+  });
+
   // Victory — Play Again
   playAgainBtn.addEventListener('click', () => {
     Network.send({ type: 'playAgain' });
@@ -576,6 +651,7 @@
     myId = null;
     roomCode = null;
     isHost = false;
+    stopChallengeTimer();
     showScreen('home');
     setTimeout(() => Network.connect(onMessage), 500);
   });

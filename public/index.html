@@ -146,6 +146,31 @@
     </div>
   </div>
 
+  <!-- ═══ WILD DRAW 4 CHALLENGE MODAL ═══ -->
+  <div id="challenge-modal" class="modal-overlay" style="display:none;">
+    <div class="challenge-modal glass-panel">
+      <div class="modal-badge-warn">🚨 Wild 4 Alert</div>
+      <h3 id="challenge-modal-title">Challenge Wild Draw 4?</h3>
+      <p id="challenge-modal-desc">A Wild Draw 4 has been played against you!</p>
+      
+      <div class="challenge-info-box">
+        <div class="info-item">
+          <strong>⚔️ Challenge:</strong> If they had matching color in hand, they draw 4 cards instead. If they were legal, you draw 6 cards & lose turn.
+        </div>
+        <div class="info-item">
+          <strong>💤 Decline:</strong> You draw 4 cards and lose your turn.
+        </div>
+      </div>
+
+      <div class="challenge-timer" id="challenge-timer">10s</div>
+
+      <div class="challenge-actions">
+        <button id="challenge-yes-btn" class="btn btn-primary">⚔️ Challenge</button>
+        <button id="challenge-no-btn" class="btn btn-secondary">Decline</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ VICTORY SCREEN ═══ -->
   <div id="victory-screen" class="screen">
     <div class="victory-container">

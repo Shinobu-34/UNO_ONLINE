@@ -908,6 +908,79 @@ input[type="text"]::placeholder {
 .color-yellow:hover { box-shadow: 0 0 40px rgba(234,179,8,0.8); }
 
 /* ══════════════════════════════════════════════════════════
+   WILD DRAW 4 CHALLENGE MODAL
+   ══════════════════════════════════════════════════════════ */
+.challenge-modal {
+  padding: 32px;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-badge-warn {
+  align-self: center;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.challenge-modal h3 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.challenge-modal p {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.challenge-info-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.info-item {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.info-item strong {
+  color: var(--text);
+}
+
+.challenge-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.challenge-timer {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════
    VICTORY SCREEN
    ══════════════════════════════════════════════════════════ */
 #victory-screen {
