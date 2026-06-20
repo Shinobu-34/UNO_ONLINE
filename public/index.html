@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Play UNO online with friends! Create a room, share the code, and enjoy the classic card game with 2-8 players.">
+  <title>UNO Online — Play with Friends</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
+</head>
+<body>
+
+  <!-- ═══ Particle Canvas Background ═══ -->
+  <canvas id="particles-canvas"></canvas>
+
+  <!-- ═══ HOME SCREEN ═══ -->
+  <div id="home-screen" class="screen active">
+    <div class="home-container">
+      <div class="logo-section">
+        <div class="uno-logo">
+          <span class="logo-u">U</span><span class="logo-n">N</span><span class="logo-o">O</span>
+        </div>
+        <p class="tagline">Play online with friends</p>
+      </div>
+
+      <div class="home-form glass-panel">
+        <div class="input-group">
+          <label for="player-name-input">Your Name</label>
+          <input type="text" id="player-name-input" placeholder="Enter your name" maxlength="20" autocomplete="off">
+        </div>
+
+        <button id="create-room-btn" class="btn btn-primary btn-lg">
+          <span class="btn-icon">✦</span> Create Room
+        </button>
+
+        <div class="divider"><span>or join a friend</span></div>
+
+        <div class="join-row">
+          <input type="text" id="room-code-input" placeholder="Room Code" maxlength="4" autocomplete="off" class="code-input">
+          <button id="join-room-btn" class="btn btn-secondary">Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ LOBBY SCREEN ═══ -->
+  <div id="lobby-screen" class="screen">
+    <div class="lobby-container">
+      <div class="lobby-header glass-panel">
+        <h2>Room Code</h2>
+        <div class="room-code-display" id="lobby-room-code">ABCD</div>
+        <button id="copy-code-btn" class="btn btn-ghost btn-sm">📋 Copy Code</button>
+        <p class="lobby-hint">Share this code with your friends!</p>
+      </div>
+
+      <div class="players-list glass-panel" id="lobby-players">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div class="lobby-actions">
+        <button id="start-game-btn" class="btn btn-primary btn-lg" style="display:none;">
+          🎮 Start Game
+        </button>
+        <button id="leave-room-btn" class="btn btn-ghost">Leave Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ GAME SCREEN ═══ -->
+  <div id="game-screen" class="screen">
+    <!-- Top bar: other players -->
+    <div class="game-top-bar" id="opponents-bar">
+      <!-- Populated dynamically -->
+    </div>
+
+    <!-- Direction indicator -->
+    <div class="direction-indicator" id="direction-indicator">
+      <svg viewBox="0 0 60 60" class="direction-svg">
+        <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+        <path id="direction-arrow" d="M 30 8 A 22 22 0 1 1 8 30" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        <polygon id="direction-head" points="5,22 8,30 14,24" fill="currentColor"/>
+      </svg>
+    </div>
+
+    <!-- Center table area -->
+    <div class="table-center">
+      <div class="pile-area">
+        <div class="draw-pile" id="draw-pile">
+          <div class="card-back">
+            <div class="card-back-inner">UNO</div>
+          </div>
+          <span class="pile-count" id="draw-count">0</span>
+        </div>
+        <div class="discard-area">
+          <div id="discard-pile" class="discard-pile">
+            <!-- Top card rendered here -->
+          </div>
+          <div class="current-color-ring" id="color-ring"></div>
+        </div>
+      </div>
+      <div class="turn-label" id="turn-label">Your Turn!</div>
+    </div>
+
+    <!-- Action log -->
+    <div class="action-log glass-panel" id="action-log">
+      <!-- Log entries -->
+    </div>
+
+    <!-- UNO + Catch buttons -->
+    <div class="floating-actions">
+      <button id="uno-btn" class="btn btn-uno" style="display:none;">UNO!</button>
+      <div id="catch-buttons"></div>
+    </div>
+
+    <!-- Drawn card prompt -->
+    <div id="drawn-card-prompt" class="drawn-prompt glass-panel" style="display:none;">
+      <p>You drew a playable card!</p>
+      <div class="drawn-card-preview" id="drawn-card-preview"></div>
+      <div class="drawn-actions">
+        <button id="play-drawn-btn" class="btn btn-primary btn-sm">Play It</button>
+        <button id="keep-drawn-btn" class="btn btn-ghost btn-sm">Keep It</button>
+      </div>
+    </div>
+
+    <!-- Player hand -->
+    <div class="hand-area">
+      <div class="hand-scroll" id="player-hand">
+        <!-- Cards rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ COLOR PICKER MODAL ═══ -->
+  <div id="color-modal" class="modal-overlay" style="display:none;">
+    <div class="color-modal glass-panel">
+      <h3>Choose a Color</h3>
+      <div class="color-choices">
+        <button class="color-btn color-red" data-color="red"></button>
+        <button class="color-btn color-blue" data-color="blue"></button>
+        <button class="color-btn color-green" data-color="green"></button>
+        <button class="color-btn color-yellow" data-color="yellow"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ VICTORY SCREEN ═══ -->
+  <div id="victory-screen" class="screen">
+    <div class="victory-container">
+      <div class="confetti-wrapper" id="confetti-wrapper"></div>
+      <div class="victory-content glass-panel">
+        <div class="trophy">🏆</div>
+        <h1 id="winner-name">Player Wins!</h1>
+        <p class="winner-score" id="winner-score">Score: 0</p>
+        <div class="victory-actions">
+          <button id="play-again-btn" class="btn btn-primary btn-lg">🔄 Play Again</button>
+          <button id="leave-game-btn" class="btn btn-ghost">Leave</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TOAST NOTIFICATIONS ═══ -->
+  <div id="toast-container"></div>
+
+  <script src="cards.js"></script>
+  <script src="network.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
