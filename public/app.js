@@ -92,16 +92,59 @@
   let challengeCountdownTimer = null;
   let challengeSecondsLeft = 10;
 
+  // Game Start Popup
+  const gameStartOverlay = $('#game-start-overlay');
+  const startCountdownText = $('#start-countdown-text');
+  const closeStartPopupBtn = $('#close-start-popup-btn');
+  let startPopupInterval = null;
+  let currentScreenName = 'home';
+
   // Victory
   const winnerName = $('#winner-name');
   const winnerScore = $('#winner-score');
   const playAgainBtn = $('#play-again-btn');
   const leaveGameBtn = $('#leave-game-btn');
 
+  // ── Orientation Control ───────────────────────────────
+  function lockLandscape() {
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        // Attempt to lock to landscape
+        screen.orientation.lock('landscape').catch(e => {
+          console.warn('Orientation lock failed (might require full screen or not supported on iOS):', e);
+        });
+      }
+    } catch (e) {
+      console.warn('Orientation API error:', e);
+    }
+  }
+
+  function unlockOrientation() {
+    try {
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    } catch (e) {
+      console.warn('Orientation API error:', e);
+    }
+  }
+
   // ── Screen Management ─────────────────────────────────
   function showScreen(name) {
-    Object.values(screens).forEach(s => s.classList.remove('active'));
-    if (screens[name]) screens[name].classList.add('active');
+    if (currentScreenName === 'lobby' && name === 'game') {
+      showGameStartPopup();
+    }
+    currentScreenName = name;
+
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const scr = document.getElementById(name + '-screen');
+    if (scr) scr.classList.add('active');
+
+    if (name === 'home') {
+      unlockOrientation();
+    } else {
+      lockLandscape();
+    }
   }
 
   // ── Particle Background (Warp Speed Starfield & Gravity Card Rain) ──
@@ -1240,11 +1283,37 @@
     });
   }
 
-  // ── Initialize ────────────────────────────────────────
+  // ── Initialization ────────────────────────────────────
+  function showGameStartPopup() {
+    if (!gameStartOverlay) return;
+    gameStartOverlay.style.display = 'flex';
+    let timeLeft = 3;
+    startCountdownText.textContent = `Closing in ${timeLeft}...`;
+
+    if (startPopupInterval) clearInterval(startPopupInterval);
+    startPopupInterval = setInterval(() => {
+      timeLeft--;
+      if (timeLeft <= 0) {
+        closeGameStartPopup();
+      } else {
+        startCountdownText.textContent = `Closing in ${timeLeft}...`;
+      }
+    }, 1000);
+  }
+
+  function closeGameStartPopup() {
+    if (startPopupInterval) clearInterval(startPopupInterval);
+    if (gameStartOverlay) gameStartOverlay.style.display = 'none';
+  }
+
   function init() {
     initParticles();
     loadProfileData();
     initCropEvents();
+
+    if (closeStartPopupBtn) {
+      closeStartPopupBtn.addEventListener('click', closeGameStartPopup);
+    }
     Network.connect(onMessage);
     showScreen('home');
 
