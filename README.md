@@ -59,3 +59,7 @@ This project is pre-configured with a `render.yaml` blueprint.
    - **Build Command**: `npm install`
    - **Start Command**: `node server.js`
 5. Click **Deploy Web Service** and enjoy your online game!
+
+---
+
+&copy; 2026 Shinobu-34. All Rights Reserved
