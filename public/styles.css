@@ -244,6 +244,16 @@ body {
   font-weight: 500;
 }
 
+.home-footer {
+  margin-top: 24px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  opacity: 0.6;
+  text-align: center;
+  font-family: var(--font-heading);
+  letter-spacing: 1px;
+}
+
 .home-form {
   padding: 32px 28px;
   display: flex;
