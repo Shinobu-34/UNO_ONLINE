@@ -72,19 +72,36 @@ body {
 
 .screen.active {
   display: flex;
-  animation: screenFadeIn 0.4s ease;
+  animation: screenZoomIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes screenFadeIn {
+@keyframes screenZoomIn {
   from {
     opacity: 0;
-    transform: scale(0.97);
+    transform: scale(0.5);
   }
 
   to {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+@keyframes spaceZoomOut {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(0.1);
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+
+.anim-space-zoom-out {
+  animation: spaceZoomOut 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards !important;
 }
 
 /* ── Glass Panel ──────────────────────────────────────────── */
@@ -431,15 +448,105 @@ input[type="text"]::placeholder {
   align-items: center;
 }
 
+.lobby-layout {
+  display: flex;
+  gap: 30px;
+  max-width: 900px;
+  width: 90%;
+  justify-content: center;
+  align-items: stretch;
+}
+
 .lobby-container {
   text-align: center;
-  width: 100%;
+  flex: 1;
   max-width: 480px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
+
+.lobby-theme-panel {
+  text-align: center;
+  flex: 1;
+  max-width: 400px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.lobby-theme-panel h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.theme-hint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  overflow-y: auto;
+  max-height: 400px;
+  padding-right: 5px;
+}
+
+.theme-btn {
+  position: relative;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  cursor: pointer;
+  background-color: var(--glass-bg);
+  transition: transform 0.2s, border-color 0.2s;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-btn span {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-shadow: 0px 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 0;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.theme-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.theme-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.theme-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.theme-btn.disabled:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 
 .lobby-header {
   padding: 28px;
@@ -621,9 +728,8 @@ input[type="text"]::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
 }
+
 
 /* Inner Felt Mat (Burgundy felt with gold border) */
 .table-inner-mat {
@@ -2158,4 +2264,475 @@ input[type="text"]::placeholder {
 .players-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   THEMES
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Lobby Preview Swatch Structure ── */
+.theme-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  padding: 0 !important;
+}
+
+.theme-btn-preview {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-bottom: 24px !important;
+  pointer-events: none !important;
+}
+
+.mini-table {
+  width: 54px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 0.2s !important;
+}
+
+.mini-card {
+  width: 14px !important;
+  height: 20px !important;
+  border-radius: 2px !important;
+  position: relative !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid #ffffff !important;
+}
+
+/* Outline fix for selected theme */
+.theme-btn.active {
+  outline: 4px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 15px var(--accent-glow) !important;
+  z-index: 10 !important;
+}
+
+/* ── Lobby Preview Buttons Specific Styling ── */
+.theme-btn-classic .mini-table {
+  background: radial-gradient(circle, #1b263b 0%, #0d131f 100%) !important;
+  border: 2px solid #5c4033 !important;
+}
+.theme-btn-classic .mini-card {
+  background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+}
+.theme-btn-cyberpunk {
+  background: #050510 !important;
+}
+.theme-btn-cyberpunk .mini-table {
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,255,255,0.05) 4px), #050510 !important;
+  border: 2px solid #00ffff !important;
+  box-shadow: 0 0 8px #00ffff, inset 0 0 4px #00ffff !important;
+}
+.theme-btn-cyberpunk .mini-card {
+  background: #05050a !important;
+  border: 1px solid #ff00ff !important;
+  box-shadow: 0 0 4px #ff00ff !important;
+}
+.theme-btn-casino {
+  background: radial-gradient(circle, #a21c1c, #4a0606) !important;
+}
+.theme-btn-casino .mini-table {
+  background: radial-gradient(circle, #a21c1c, #4a0606) !important;
+  border: 2px solid #c5a059 !important;
+}
+.theme-btn-casino .mini-card {
+  background: #fdfaf2 !important;
+  border: 1px solid #c5a059 !important;
+}
+.theme-btn-arcade {
+  background: #000000 !important;
+}
+.theme-btn-arcade .mini-table {
+  background: #080808 !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 0px !important;
+}
+.theme-btn-arcade .mini-card {
+  background: #ff0000 !important;
+  border: 1px solid #ffffff !important;
+  border-radius: 0px !important;
+}
+.theme-btn-glass {
+  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%) !important;
+}
+.theme-btn-glass .mini-table {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+.theme-btn-glass .mini-card {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+}
+.theme-btn-void {
+  background: radial-gradient(circle at center, #100022 0%, #020005 100%) !important;
+}
+.theme-btn-void .mini-table {
+  background: radial-gradient(circle at center, #100022 0%, #020005 100%) !important;
+  border: 1.5px solid rgba(168, 85, 247, 0.5) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3) !important;
+}
+.theme-btn-void .mini-card {
+  background: #000000 !important;
+  border: 1px solid #3399ff !important;
+  box-shadow: 0 0 4px #3399ff !important;
+}
+
+/* ── 2. Neon Cyberpunk ── */
+body.theme-cyberpunk #game-screen {
+  background: radial-gradient(circle, #080816 0%, #020205 100%) !important;
+}
+body.theme-cyberpunk .uno-table {
+  background: linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+              #050510 !important;
+  background-size: 20px 20px !important;
+  border: 5px solid #00ffff !important;
+  border-radius: 40px !important;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.4), inset 0 0 25px rgba(0, 255, 255, 0.2) !important;
+}
+body.theme-cyberpunk .table-inner-mat {
+  background: rgba(0, 0, 0, 0.7) !important;
+  border: 2px dashed #ff00ff !important;
+  border-radius: 24px !important;
+  box-shadow: 0 0 15px rgba(255, 0, 255, 0.3) !important;
+}
+body.theme-cyberpunk .opponent-slot,
+body.theme-cyberpunk .player-hud-info,
+body.theme-cyberpunk .action-log {
+  background: rgba(5, 5, 16, 0.85) !important;
+  border: 1px solid #00ffff !important;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+}
+body.theme-cyberpunk .uno-card {
+  background: #090915 !important;
+  border-radius: 12px !important;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s !important;
+}
+body.theme-cyberpunk .card-face {
+  background: #05050a !important;
+  border-radius: 10px !important;
+}
+body.theme-cyberpunk .card-red { color: #ff0055 !important; border: 2px solid #ff0055 !important; box-shadow: 0 0 8px rgba(255, 0, 85, 0.3) !important; }
+body.theme-cyberpunk .card-blue { color: #00ffff !important; border: 2px solid #00ffff !important; box-shadow: 0 0 8px rgba(0, 255, 255, 0.3) !important; }
+body.theme-cyberpunk .card-green { color: #00ff66 !important; border: 2px solid #00ff66 !important; box-shadow: 0 0 8px rgba(0, 255, 102, 0.3) !important; }
+body.theme-cyberpunk .card-yellow { color: #ffff00 !important; border: 2px solid #ffff00 !important; box-shadow: 0 0 8px rgba(255, 255, 0, 0.3) !important; }
+body.theme-cyberpunk .card-wild { color: #bd00ff !important; border: 2px solid #bd00ff !important; box-shadow: 0 0 8px rgba(189, 0, 255, 0.3) !important; }
+
+body.theme-cyberpunk .uno-card:hover {
+  box-shadow: 0 0 25px currentColor, 0 0 45px rgba(255, 255, 255, 0.1) !important;
+  z-index: 1000 !important;
+}
+body.theme-cyberpunk .card-value,
+body.theme-cyberpunk .card-corner {
+  color: currentColor !important;
+  text-shadow: 0 0 6px currentColor, 0 0 12px currentColor !important;
+}
+body.theme-cyberpunk .card-oval {
+  background: transparent !important;
+  border: 1px dashed currentColor !important;
+  box-shadow: inset 0 0 8px currentColor !important;
+}
+body.theme-cyberpunk .card-back {
+  background: linear-gradient(145deg, #090915, #000000) !important;
+  border: 3px solid #ff00ff !important;
+  box-shadow: 0 0 15px rgba(255, 0, 255, 0.4) !important;
+}
+body.theme-cyberpunk .card-back-inner {
+  color: #00ffff !important;
+  text-shadow: 0 0 8px #00ffff, 0 0 15px #00ffff !important;
+}
+
+/* ── 3. Royal Casino ── */
+body.theme-casino #game-screen {
+  background: radial-gradient(circle, #2d0a0a 0%, #140303 100%) !important;
+}
+body.theme-casino .uno-table {
+  background: radial-gradient(circle, #a21c1c, #4a0606) !important;
+  border: 16px solid #c5a059 !important;
+  border-radius: 60px !important;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+}
+body.theme-casino .table-inner-mat {
+  background: transparent !important;
+  border: 2px solid rgba(197, 160, 89, 0.4) !important;
+  border-radius: 40px !important;
+  box-shadow: none !important;
+}
+body.theme-casino .opponent-slot,
+body.theme-casino .player-hud-info,
+body.theme-casino .action-log {
+  background: rgba(45, 10, 10, 0.9) !important;
+  border: 1.5px solid #c5a059 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+}
+body.theme-casino .uno-card {
+  border-radius: 8px !important;
+  background: #fdfaf2 !important;
+  border: 2px solid #c5a059 !important;
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s !important;
+}
+body.theme-casino .card-face {
+  background: #fdfaf2 !important;
+  border: 1px solid rgba(197, 160, 89, 0.3) !important;
+  border-radius: 6px !important;
+}
+body.theme-casino .card-red .card-value,
+body.theme-casino .card-red .card-corner { color: #b81d24 !important; text-shadow: none !important; }
+body.theme-casino .card-blue .card-value,
+body.theme-casino .card-blue .card-corner { color: #0f4c81 !important; text-shadow: none !important; }
+body.theme-casino .card-green .card-value,
+body.theme-casino .card-green .card-corner { color: #1b4d3e !important; text-shadow: none !important; }
+body.theme-casino .card-yellow .card-value,
+body.theme-casino .card-yellow .card-corner { color: #b8860b !important; text-shadow: none !important; }
+body.theme-casino .card-wild .card-value,
+body.theme-casino .card-wild .card-corner,
+body.theme-casino .card-wild .wild-label { color: #5c4033 !important; text-shadow: none !important; }
+
+body.theme-casino .uno-card:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(197, 160, 89, 0.3) !important;
+  z-index: 1000 !important;
+}
+body.theme-casino .card-oval {
+  background: rgba(197, 160, 89, 0.06) !important;
+  border: 1px dashed rgba(197, 160, 89, 0.4) !important;
+  border-radius: 4px !important;
+  transform: rotate(-15deg) !important;
+}
+body.theme-casino .card-back {
+  background: #c5a059 !important;
+  border: 3px solid #fdfaf2 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+}
+body.theme-casino .card-back-inner {
+  color: #fdfaf2 !important;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3) !important;
+  font-family: serif !important;
+  font-style: italic !important;
+}
+
+/* ── 4. Retro Arcade ── */
+body.theme-arcade #game-screen {
+  background: #000000 !important;
+  image-rendering: pixelated !important;
+}
+body.theme-arcade .uno-table {
+  background: #080808 !important;
+  border: 8px solid #ffffff !important;
+  border-radius: 0px !important;
+  box-shadow: 8px 8px 0px #555555 !important;
+}
+body.theme-arcade .table-inner-mat {
+  background: #000000 !important;
+  border: 4px dashed #ffffff !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+}
+body.theme-arcade .opponent-slot,
+body.theme-arcade .player-hud-info,
+body.theme-arcade .action-log {
+  background: #000000 !important;
+  border: 4px solid #ffffff !important;
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px #555555 !important;
+  font-family: 'Courier New', Courier, monospace !important;
+}
+body.theme-arcade .uno-card {
+  border-radius: 0px !important;
+  border: 4px solid #ffffff !important;
+  box-shadow: 4px 4px 0px #000000 !important;
+  transition: none !important; /* Step-based feel */
+}
+body.theme-arcade .card-face {
+  border-radius: 0px !important;
+  border: 2px solid #ffffff !important;
+}
+body.theme-arcade .card-red .card-face { background: #ff0000 !important; }
+body.theme-arcade .card-blue .card-face { background: #0000ff !important; }
+body.theme-arcade .card-green .card-face { background: #00ff00 !important; }
+body.theme-arcade .card-yellow .card-face { background: #ffff00 !important; }
+body.theme-arcade .card-wild .card-face { background: #222222 !important; }
+
+body.theme-arcade .card-red .card-value, body.theme-arcade .card-red .card-corner { color: #ffffff !important; text-shadow: 2px 2px 0px #550000 !important; }
+body.theme-arcade .card-blue .card-value, body.theme-arcade .card-blue .card-corner { color: #ffffff !important; text-shadow: 2px 2px 0px #000055 !important; }
+body.theme-arcade .card-green .card-value, body.theme-arcade .card-green .card-corner { color: #000000 !important; text-shadow: 2px 2px 0px #88ff88 !important; }
+body.theme-arcade .card-yellow .card-value, body.theme-arcade .card-yellow .card-corner { color: #000000 !important; text-shadow: 2px 2px 0px #ffffaa !important; }
+body.theme-arcade .card-wild .card-value, body.theme-arcade .card-wild .card-corner, body.theme-arcade .card-wild .wild-label { color: #ffffff !important; text-shadow: 2px 2px 0px #555555 !important; }
+
+body.theme-arcade .uno-card:hover {
+  box-shadow: 10px 10px 0px #555555 !important;
+  z-index: 1000 !important;
+}
+body.theme-arcade .card-oval {
+  border-radius: 0px !important;
+  transform: none !important;
+  width: 80% !important;
+  height: 80% !important;
+  background: transparent !important;
+  border: 3px solid rgba(255, 255, 255, 0.4) !important;
+}
+body.theme-arcade .card-back {
+  background: #ff0000 !important;
+  border: 4px solid #ffffff !important;
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px #555555 !important;
+}
+body.theme-arcade .card-back-inner {
+  color: #ffffff !important;
+  text-shadow: 3px 3px 0px #000000 !important;
+  font-family: 'Courier New', monospace !important;
+  font-weight: 900 !important;
+  transform: none !important;
+}
+
+/* ── 5. Ethereal Glass ── */
+body.theme-glass #game-screen {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+}
+body.theme-glass .uno-table {
+  background: rgba(255, 255, 255, 0.25) !important;
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
+  border: 2px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 32px !important;
+  box-shadow: 0 10px 40px rgba(31, 38, 135, 0.1) !important;
+}
+body.theme-glass .table-inner-mat {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1.5px dashed rgba(255, 255, 255, 0.3) !important;
+  border-radius: 20px !important;
+  box-shadow: none !important;
+}
+body.theme-glass .opponent-slot,
+body.theme-glass .player-hud-info,
+body.theme-glass .action-log {
+  background: rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+  color: #333344 !important;
+}
+body.theme-glass .opponent-slot .opp-name,
+body.theme-glass .player-hud-info .hud-name {
+  color: #333344 !important;
+}
+body.theme-glass .uno-card {
+  background: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 2px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 14px !important;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease !important;
+}
+body.theme-glass .card-face {
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+body.theme-glass .card-red .card-face { background: rgba(255, 140, 140, 0.75) !important; }
+body.theme-glass .card-blue .card-face { background: rgba(140, 180, 255, 0.75) !important; }
+body.theme-glass .card-green .card-face { background: rgba(140, 230, 160, 0.75) !important; }
+body.theme-glass .card-yellow .card-face { background: rgba(255, 230, 140, 0.75) !important; }
+body.theme-glass .card-wild .card-face { background: rgba(210, 170, 255, 0.75) !important; }
+
+body.theme-glass .card-value,
+body.theme-glass .card-corner {
+  color: #ffffff !important;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+}
+body.theme-glass .card-oval {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 50% !important;
+}
+body.theme-glass .uno-card:hover {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 0 25px rgba(255, 255, 255, 0.4) !important;
+  z-index: 1000 !important;
+}
+body.theme-glass .card-back {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: 3px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+}
+body.theme-glass .card-back-inner {
+  color: #8ec5fc !important;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.6) !important;
+}
+
+/* ── 6. Dark Matter Void ── */
+body.theme-void #game-screen {
+  background: radial-gradient(circle at center, #020008, #000000) !important;
+}
+body.theme-void .uno-table {
+  background: radial-gradient(circle at center, #100022 0%, #03000b 100%) !important;
+  border: 3px solid rgba(168, 85, 247, 0.3) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.15), inset 0 0 40px rgba(168, 85, 247, 0.1) !important;
+}
+body.theme-void .table-inner-mat {
+  background: transparent !important;
+  border: 1px dashed rgba(168, 85, 247, 0.2) !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+body.theme-void .opponent-slot,
+body.theme-void .player-hud-info,
+body.theme-void .action-log {
+  background: #03000b !important;
+  border: 1.5px solid rgba(168, 85, 247, 0.4) !important;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.1) !important;
+}
+body.theme-void .uno-card {
+  background: #000000 !important;
+  border-radius: 12px !important;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s !important;
+}
+body.theme-void .card-face {
+  background: #030303 !important;
+  border-radius: 10px !important;
+}
+body.theme-void .card-red { color: #ff3366 !important; border: 2px solid #ff3366 !important; box-shadow: 0 0 10px rgba(255, 51, 102, 0.3) !important; }
+body.theme-void .card-blue { color: #3399ff !important; border: 2px solid #3399ff !important; box-shadow: 0 0 10px rgba(51, 153, 255, 0.3) !important; }
+body.theme-void .card-green { color: #33cc66 !important; border: 2px solid #33cc66 !important; box-shadow: 0 0 10px rgba(51, 204, 102, 0.3) !important; }
+body.theme-void .card-yellow { color: #ffcc00 !important; border: 2px solid #ffcc00 !important; box-shadow: 0 0 10px rgba(255, 204, 0, 0.3) !important; }
+body.theme-void .card-wild { color: #cc33ff !important; border: 2px solid #cc33ff !important; box-shadow: 0 0 10px rgba(204, 51, 255, 0.3) !important; }
+
+body.theme-void .uno-card:hover {
+  box-shadow: 0 0 25px currentColor, 0 0 50px rgba(255, 255, 255, 0.1) !important;
+  z-index: 1000 !important;
+}
+body.theme-void .card-value,
+body.theme-void .card-corner {
+  color: currentColor !important;
+  text-shadow: 0 0 8px currentColor, 0 0 15px currentColor !important;
+}
+body.theme-void .card-oval {
+  background: transparent !important;
+  border: 2px solid currentColor !important;
+  box-shadow: inset 0 0 8px currentColor, 0 0 8px currentColor !important;
+}
+body.theme-void .card-back {
+  background: #000000 !important;
+  border: 2px solid rgba(168, 85, 247, 0.5) !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4) !important;
+}
+body.theme-void .card-back-inner {
+  color: rgba(168, 85, 247, 0.9) !important;
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.8) !important;
 }

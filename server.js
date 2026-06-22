@@ -50,6 +50,7 @@ class UnoGame {
     this.drawnCard = null;
     this.actionLog = [];
     this.unoCatchablePlayerId = null;
+    this.currentTheme = 'classic';
   }
 
   // ── Player management ────────────────────────────────
@@ -322,7 +323,6 @@ class UnoGame {
     // Set color
     this.currentColor = (card.type === 'wild' || card.type === 'wild4') ? chosenColor : card.color;
 
-    // Log it
     const cn = this.currentColor.charAt(0).toUpperCase() + this.currentColor.slice(1);
     if (card.type === 'number') this.log(`${player.name} played ${cn} ${card.value}`);
     else if (card.type === 'wild') this.log(`${player.name} played Wild → ${cn}`);
@@ -332,140 +332,135 @@ class UnoGame {
       this.log(`${player.name} played ${cn} ${label}`);
     }
 
-    // Win check
     if (player.hand.length === 0) {
       this.state = 'finished';
       this.broadcastGameOver(player);
       return;
     }
 
-    // Reset calledUno if their hand size is not exactly 1 card
-    if (player.hand.length !== 1) {
-      player.calledUno = false;
-    }
+    if (player.hand.length !== 1) player.calledUno = false;
+    if (player.hand.length === 1 && !player.calledUno) this.unoCatchablePlayerId = player.id;
 
-    // UNO check: if they have 1 card and haven't called UNO
-    if (player.hand.length === 1 && !player.calledUno) {
-      this.unoCatchablePlayerId = player.id;
-    }
-
-    // For Wild Draw 4: set up challenge window
-    if (card.type === 'wild4') {
-      this.pendingWild4 = {
+    // For Wild Draw 4 and Draw 2: enter Stack or Draw phase
+    if (card.type === 'wild4' || card.type === 'draw2') {
+      const penalty = card.type === 'wild4' ? 4 : 2;
+      this.pendingDraw = {
         playerId: player.id,
         playerName: player.name,
-        wasLegal: wild4Legal,
-        chosenColor: chosenColor
+        cardType: card.type,
+        accumulatedDraw: penalty,
+        chosenColor: this.currentColor
       };
-      // Figure out who the victim is (the next player)
+
       const n = this.players.length;
       const victimIdx = ((this.currentPlayerIndex + this.direction) % n + n) % n;
       const victim = this.players[victimIdx];
-      this.pendingWild4.victimId = victim.id;
-      this.pendingWild4.victimIdx = victimIdx;
+      this.pendingDraw.victimId = victim.id;
+      this.pendingDraw.victimIdx = victimIdx;
 
-      // Notify victim about the challenge option
-      send(victim.ws, {
-        type: 'wild4Challenge',
-        playerId: player.id,
-        playerName: player.name
-      });
-
-      // Set a 10-second timeout: if victim doesn't challenge, apply the draw 4
-      this.wild4Timer = setTimeout(() => {
-        this.resolveWild4(false);
+      this.drawTimer = setTimeout(() => {
+        this.acceptDraw(victim.id);
       }, 10000);
 
       this.broadcastState();
-      return; // Don't advance turn yet — waiting for challenge decision
+      return;
     }
 
-    // Apply effects (may skip additional players)
     this.applyEffect(card);
     this.nextTurn();
     this.broadcastState();
   }
 
-  // Resolve a Wild Draw 4 challenge
-  resolveWild4(challenged) {
-    if (!this.pendingWild4) return;
-    clearTimeout(this.wild4Timer);
+  acceptDraw(playerId) {
+    if (!this.pendingDraw) return;
+    if (this.pendingDraw.victimId !== playerId) return;
 
-    const { playerId, playerName, wasLegal, victimId, victimIdx } = this.pendingWild4;
-    const attacker = this.players.find(p => p.id === playerId);
+    clearTimeout(this.drawTimer);
+
+    const { victimId, victimIdx, accumulatedDraw } = this.pendingDraw;
     const victim = this.players.find(p => p.id === victimId);
 
-    if (challenged) {
-      if (wasLegal) {
-        // Challenge failed: victim draws 6 (4 + 2 penalty) and is skipped
-        victim.hand.push(...this.drawFromDeck(6));
-        victim.calledUno = false;
-        this.log(`🚫 ${victim.name} challenged but ${playerName} was legal! ${victim.name} draws 6 cards!`);
-        this.broadcastNotification(`🚫 Challenge failed! ${victim.name} draws 6 cards!`);
-      } else {
-        // Challenge succeeded: attacker takes back the draw 4 penalty — attacker draws 4
-        attacker.hand.push(...this.drawFromDeck(4));
-        attacker.calledUno = false;
-        this.log(`✅ ${victim.name} challenged successfully! ${playerName} draws 4 cards!`);
-        this.broadcastNotification(`✅ Challenge successful! ${playerName} draws 4 cards!`);
-      }
-    } else {
-      // No challenge: victim draws 4 and is skipped
-      victim.hand.push(...this.drawFromDeck(4));
-      victim.calledUno = false;
-      this.log(`${victim.name} draws 4 cards and is skipped!`);
-    }
+    victim.hand.push(...this.drawFromDeck(accumulatedDraw));
+    victim.calledUno = false;
+    this.log(`${victim.name} draws ${accumulatedDraw} cards and is skipped!`);
 
-    this.pendingWild4 = null;
-
-    if (challenged && !wasLegal) {
-      // Challenge succeeded: turn goes to victim (not skipped)
-      this.nextTurn();
-    } else {
-      // Challenge failed or declined: victim is skipped
-      this.nextTurn(); // to victim
-      this.nextTurn(); // past victim (skipped)
-    }
+    this.pendingDraw = null;
+    this.currentPlayerIndex = victimIdx;
+    this.nextTurn();
     this.broadcastState();
   }
 
-  challengeWild4(challengerId) {
-    if (!this.pendingWild4) throw new Error('No pending Wild Draw 4 to challenge');
-    if (this.pendingWild4.victimId !== challengerId) throw new Error('Only the affected player can challenge');
-    this.resolveWild4(true);
-  }
+  stackDraw(playerId, cardId, chosenColor) {
+    if (!this.pendingDraw) return;
+    if (this.pendingDraw.victimId !== playerId) return;
 
-  declineWild4Challenge(playerId) {
-    if (!this.pendingWild4) throw new Error('No pending Wild Draw 4');
-    if (this.pendingWild4.victimId !== playerId) throw new Error('Only the affected player can decline');
-    this.resolveWild4(false);
+    const player = this.players.find(p => p.id === playerId);
+    const cardIdx = player.hand.findIndex(c => c.id === cardId);
+    if (cardIdx === -1) return;
+    const card = player.hand[cardIdx];
+    
+    if (card.type !== this.pendingDraw.cardType) return;
+
+    clearTimeout(this.drawTimer);
+
+    player.hand.splice(cardIdx, 1);
+    this.discardPile.push(card);
+    
+    if (card.type === 'wild4') {
+      this.currentColor = chosenColor;
+    } else {
+      this.currentColor = card.color || this.currentColor;
+    }
+
+    if (player.hand.length === 1 && !player.calledUno) {
+      player.hand.push(...this.drawFromDeck(2));
+      this.broadcastNotification(`${player.name} forgot to say UNO! Draws 2.`);
+    }
+
+    this.currentPlayerIndex = this.pendingDraw.victimIdx;
+    
+    const n = this.players.length;
+    const nextVictimIdx = ((this.currentPlayerIndex + this.direction) % n + n) % n;
+    const nextVictim = this.players[nextVictimIdx];
+    
+    const increment = card.type === 'wild4' ? 4 : 2;
+    const newDrawAmount = this.pendingDraw.accumulatedDraw + increment;
+
+    this.pendingDraw = {
+      playerId: player.id,
+      playerName: player.name,
+      victimId: nextVictim.id,
+      victimIdx: nextVictimIdx,
+      cardType: card.type,
+      chosenColor: this.currentColor,
+      accumulatedDraw: newDrawAmount
+    };
+
+    this.log(`💥 ${player.name} stacked a +${increment}! ${nextVictim.name} faces +${newDrawAmount}!`);
+
+    this.drawTimer = setTimeout(() => {
+      this.acceptDraw(nextVictim.id);
+    }, 10000);
+
+    if (player.hand.length === 0) {
+      this.state = 'finished';
+      this.broadcastGameOver(player);
+      return;
+    }
+
+    this.broadcastState();
   }
 
   applyEffect(card) {
     const n = this.players.length;
     switch (card.type) {
       case 'skip':
-        // Skip always advances one extra turn (skipping the next player)
-        // In 2-player: nextTurn in playCard goes to opponent, this extra nextTurn skips them back to me
         this.nextTurn();
         break;
-
       case 'reverse':
         this.direction *= -1;
-        if (n === 2) this.nextTurn(); // reverse = skip in 2-player
+        if (n === 2) this.nextTurn();
         break;
-
-      case 'draw2': {
-        const vi = ((this.currentPlayerIndex + this.direction) % n + n) % n;
-        const victim = this.players[vi];
-        victim.hand.push(...this.drawFromDeck(2));
-        victim.calledUno = false;
-        this.log(`${victim.name} draws 2 cards and is skipped!`);
-        this.nextTurn();
-        break;
-      }
-
-      // Wild Draw 4 is now handled via challenge system in playCard()
     }
   }
 
@@ -474,9 +469,7 @@ class UnoGame {
     if (!player) throw new Error('Player not found');
     if (player.id !== this.cur().id) throw new Error("Not your turn");
 
-    // Drawing a card clears any active catchable status from the previous turn
     this.unoCatchablePlayerId = null;
-
     if (this.drawnCard) throw new Error('Already drew a card this turn');
 
     const cards = this.drawFromDeck(1);
@@ -518,6 +511,9 @@ class UnoGame {
     const player = this.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
     player.calledUno = true;
+    if (this.unoCatchablePlayerId === playerId) {
+      this.unoCatchablePlayerId = null;
+    }
     this.broadcastNotification(`🎴 ${player.name} called UNO!`);
     this.broadcastState();
   }
@@ -530,10 +526,9 @@ class UnoGame {
       throw new Error('Player cannot be caught or already called UNO / turn progressed');
     }
 
-    // Official rule: penalty is 2 cards for failing to say UNO
     target.hand.push(...this.drawFromDeck(2));
     target.calledUno = false;
-    this.unoCatchablePlayerId = null; // no longer catchable
+    this.unoCatchablePlayerId = null;
     this.log(`🚨 ${catcher.name} caught ${target.name}! +2 penalty cards!`);
     this.broadcastNotification(`🚨 ${catcher.name} caught ${target.name}! +2 cards!`);
     this.broadcastState();
@@ -564,18 +559,21 @@ class UnoGame {
       })),
       myId: player.id,
       drawPileCount: this.deck.length,
-      isMyTurn: player.id === this.cur().id && !this.pendingWild4,
+      isMyTurn: player.id === this.cur().id && !this.pendingDraw,
       hasDrawnCard: this.drawnCard !== null && player.id === this.cur().id,
       drawnCard: (this.drawnCard !== null && player.id === this.cur().id) ? this.drawnCard : null,
-      pendingWild4: this.pendingWild4 ? {
-        victimId: this.pendingWild4.victimId,
-        playerName: this.pendingWild4.playerName
+      pendingDraw: this.pendingDraw ? {
+        victimId: this.pendingDraw.victimId,
+        playerName: this.pendingDraw.playerName,
+        cardType: this.pendingDraw.cardType,
+        accumulatedDraw: this.pendingDraw.accumulatedDraw
       } : null,
       catchable: this.unoCatchablePlayerId && this.unoCatchablePlayerId !== player.id
         ? [this.players.find(p => p.id === this.unoCatchablePlayerId)].filter(Boolean).map(p => ({ id: p.id, name: p.name }))
         : [],
       log: this.actionLog.slice(-10),
-      gameState: this.state
+      gameState: this.state,
+      currentTheme: this.currentTheme
     };
   }
 
@@ -622,7 +620,8 @@ class UnoGame {
         connected: p.connected,
         pfp: p.pfp
       })),
-      hostId: this.hostId
+      hostId: this.hostId,
+      currentTheme: this.currentTheme
     };
   }
 
@@ -642,9 +641,9 @@ class UnoGame {
     this.discardPile = [];
     this.actionLog = [];
     this.drawnCard = null;
-    this.pendingWild4 = null;
-    if (this.wild4Timer) clearTimeout(this.wild4Timer);
-    this.wild4Timer = null;
+    this.pendingDraw = null;
+    if (this.drawTimer) clearTimeout(this.drawTimer);
+    this.drawTimer = null;
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.unoCatchablePlayerId = null;
@@ -700,6 +699,16 @@ wss.on('connection', (ws) => {
           game.playCard(playerId, msg.cardId, msg.chosenColor || null);
           break;
 
+        case 'acceptDraw':
+          if (!game) return;
+          game.acceptDraw(playerId);
+          break;
+
+        case 'stackDraw':
+          if (!game) return;
+          game.stackDraw(playerId, msg.cardId, msg.chosenColor || null);
+          break;
+
         case 'drawCard':
           if (!game) return;
           game.drawCard(playerId);
@@ -725,16 +734,6 @@ wss.on('connection', (ws) => {
           game.catchUno(playerId, msg.targetId);
           break;
 
-        case 'challengeWild4':
-          if (!game) return;
-          game.challengeWild4(playerId);
-          break;
-
-        case 'declineWild4':
-          if (!game) return;
-          game.declineWild4Challenge(playerId);
-          break;
-
         case 'playAgain':
           if (!game) return;
           if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can restart' });
@@ -746,6 +745,14 @@ wss.on('connection', (ws) => {
           if (!game) return;
           if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can kick players' });
           game.kickPlayer(msg.targetId);
+          break;
+
+        case 'changeTheme':
+          if (!game) return;
+          if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can change the theme' });
+          game.currentTheme = msg.theme;
+          if (game.state === 'lobby') game.broadcastLobby();
+          else game.broadcastState();
           break;
 
         default:

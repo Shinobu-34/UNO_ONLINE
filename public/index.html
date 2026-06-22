@@ -67,23 +67,35 @@
 
   <!-- ═══ LOBBY SCREEN ═══ -->
   <div id="lobby-screen" class="screen">
-    <div class="lobby-container">
-      <div class="lobby-header glass-panel">
-        <h2>Room Code</h2>
-        <div class="room-code-display" id="lobby-room-code">ABCD</div>
-        <button id="copy-code-btn" class="btn btn-ghost btn-sm">📋 Copy Code</button>
-        <p class="lobby-hint">Share this code with your friends!</p>
+    <div class="lobby-layout">
+      <!-- Left Column: Lobby Info -->
+      <div class="lobby-container">
+        <div class="lobby-header glass-panel">
+          <h2>Room Code</h2>
+          <div class="room-code-display" id="lobby-room-code">ABCD</div>
+          <button id="copy-code-btn" class="btn btn-ghost btn-sm">📋 Copy Code</button>
+          <p class="lobby-hint">Share this code with your friends!</p>
+        </div>
+
+        <div class="players-list glass-panel" id="lobby-players">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="lobby-actions">
+          <button id="start-game-btn" class="btn btn-primary btn-lg" style="display:none;">
+            🎮 Start Game
+          </button>
+          <button id="leave-room-btn" class="btn btn-ghost">Leave Room</button>
+        </div>
       </div>
 
-      <div class="players-list glass-panel" id="lobby-players">
-        <!-- Populated dynamically -->
-      </div>
-
-      <div class="lobby-actions">
-        <button id="start-game-btn" class="btn btn-primary btn-lg" style="display:none;">
-          🎮 Start Game
-        </button>
-        <button id="leave-room-btn" class="btn btn-ghost">Leave Room</button>
+      <!-- Right Column: Theme Selection -->
+      <div class="lobby-theme-panel glass-panel" id="theme-panel">
+        <h3>Game Theme</h3>
+        <p class="theme-hint" id="theme-hint">Only the host can change the theme.</p>
+        <div class="theme-grid" id="theme-grid">
+          <!-- Themes populated via JS -->
+        </div>
       </div>
     </div>
   </div>
@@ -201,28 +213,27 @@
     </div>
   </div>
 
-  <!-- ═══ WILD DRAW 4 CHALLENGE MODAL ═══ -->
-  <div id="challenge-modal" class="modal-overlay" style="display:none;">
+  <!-- ═══ PENALTY ALERT MODAL ═══ -->
+  <div id="penalty-modal" class="modal-overlay" style="display:none;">
     <div class="challenge-modal glass-panel">
-      <div class="modal-badge-warn">🚨 Wild 4 Alert</div>
-      <h3 id="challenge-modal-title">Challenge Wild Draw 4?</h3>
-      <p id="challenge-modal-desc">A Wild Draw 4 has been played against you!</p>
+      <div class="modal-badge-warn">🚨 Penalty Alert</div>
+      <h3 id="penalty-modal-title">Draw Penalty (+X)</h3>
+      <p id="penalty-modal-desc">A penalty card has been played against you!</p>
 
       <div class="challenge-info-box">
         <div class="info-item">
-          <strong>⚔️ Challenge:</strong> If they had matching color in hand, they draw 4 cards instead. If they were
-          legal, you draw 6 cards & lose turn.
+          <strong>💥 Stack:</strong> Play a matching penalty card to pass the total penalty to the next player!
         </div>
         <div class="info-item">
-          <strong>💤 Decline:</strong> You draw 4 cards and lose your turn.
+          <strong>💤 Decline:</strong> You draw the penalty cards and lose your turn.
         </div>
       </div>
 
-      <div class="challenge-timer" id="challenge-timer">10s</div>
+      <div class="challenge-timer" id="penalty-timer">10s</div>
 
       <div class="challenge-actions">
-        <button id="challenge-yes-btn" class="btn btn-primary">⚔️ Challenge</button>
-        <button id="challenge-no-btn" class="btn btn-secondary">Decline</button>
+        <button id="penalty-stack-btn" class="btn" style="display: none; background: linear-gradient(135deg, #a855f7, #7e22ce); color: white; border: none; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);">💥 Stack</button>
+        <button id="penalty-draw-btn" class="btn btn-secondary">Decline (Draw)</button>
       </div>
     </div>
   </div>
@@ -283,7 +294,7 @@
 
   <script src="cards.js?v=2"></script>
   <script src="network.js?v=2"></script>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=8"></script>
 </body>
 
 </html>

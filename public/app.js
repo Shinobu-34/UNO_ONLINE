@@ -12,6 +12,7 @@
   let gameState = null;
   let pendingWildCardId = null;   // card id waiting for color pick
   let pendingDrawnWild = false;   // drawn card is wild, waiting for color pick
+  let pendingStackWild = false;   // stacked +4 is waiting for color pick
   let drawnCardData = null;       // { card, canPlay }
 
   // Profile and PFP Crop State
@@ -23,6 +24,15 @@
   let isDraggingCrop = false;     // drag panning trigger
   let dragStartX = 0;             // drag pan coordinate history X
   let dragStartY = 0;             // drag pan coordinate history Y
+
+  const THEMES = [
+    { id: 'classic', name: 'Classic Felt', color: '#151e27' },
+    { id: 'cyberpunk', name: 'Neon Cyberpunk', color: '#00ffff' },
+    { id: 'casino', name: 'Royal Casino', color: '#a21c1c' },
+    { id: 'arcade', name: 'Retro Arcade', color: '#ffff00' },
+    { id: 'glass', name: 'Ethereal Glass', color: '#e0c3fc' },
+    { id: 'void', name: 'Dark Matter Void', color: '#1a0033' }
+  ];
 
   // ── DOM References ─────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
@@ -82,15 +92,16 @@
   // Color modal
   const colorModal = $('#color-modal');
 
-  // Challenge modal
-  const challengeModal = $('#challenge-modal');
-  const challengeDesc = $('#challenge-modal-desc');
-  const challengeTimer = $('#challenge-timer');
-  const challengeYesBtn = $('#challenge-yes-btn');
-  const challengeNoBtn = $('#challenge-no-btn');
+  // Penalty modal
+  const penaltyModal = $('#penalty-modal');
+  const penaltyTitle = $('#penalty-modal-title');
+  const penaltyDesc = $('#penalty-modal-desc');
+  const penaltyTimer = $('#penalty-timer');
+  const penaltyStackBtn = $('#penalty-stack-btn');
+  const penaltyDrawBtn = $('#penalty-draw-btn');
 
-  let challengeCountdownTimer = null;
-  let challengeSecondsLeft = 10;
+  let penaltyCountdownTimer = null;
+  let penaltySecondsLeft = 10;
 
   // Game Start Popup
   const gameStartOverlay = $('#game-start-overlay');
@@ -134,9 +145,27 @@
     if (currentScreenName === 'lobby' && name === 'game') {
       showGameStartPopup();
     }
+    
+    // Custom transition from home to lobby
+    if (currentScreenName === 'home' && name === 'lobby') {
+      const homeScr = document.getElementById('home-screen');
+      if (homeScr) homeScr.classList.add('anim-space-zoom-out');
+      
+      if (window.triggerWarpSpeed) window.triggerWarpSpeed();
+
+      setTimeout(() => {
+        if (homeScr) homeScr.classList.remove('active', 'anim-space-zoom-out');
+        currentScreenName = name;
+        const scr = document.getElementById(name + '-screen');
+        if (scr) scr.classList.add('active');
+        lockLandscape();
+      }, 500); // wait for exit animation
+      return;
+    }
+
     currentScreenName = name;
 
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'anim-space-zoom-out'));
     const scr = document.getElementById(name + '-screen');
     if (scr) scr.classList.add('active');
 
@@ -188,6 +217,11 @@
       isIdle: true
     };
     let idleTimer = null;
+    let manualWarp = 0;
+
+    window.triggerWarpSpeed = function() {
+      manualWarp = 60;
+    };
 
     window.addEventListener('mousemove', (e) => {
       mouse.targetX = e.clientX;
@@ -278,8 +312,14 @@
       // ──────────────────────────────────────────────────────────
       // LAYER 1: Deep Background Starfield Hyperdrive Warp
       // ──────────────────────────────────────────────────────────
+      if (manualWarp > 0.1) {
+        manualWarp *= 0.92; // smooth decay
+      } else {
+        manualWarp = 0;
+      }
+      
       const baseStarSpeed = 1.0;
-      const warpModifier = Math.min(18, mouseSpeed * 1.2);
+      const warpModifier = Math.min(18, mouseSpeed * 1.2) + manualWarp;
       const currentStarSpeed = baseStarSpeed + warpModifier;
 
       for (const star of stars) {
@@ -404,28 +444,28 @@
     }
   }
 
-  // ── Challenge Timer ───────────────────────────────────
-  function startChallengeTimer() {
-    if (challengeCountdownTimer) return; // already running
-    challengeSecondsLeft = 10;
-    challengeTimer.textContent = `${challengeSecondsLeft}s`;
+  // ── Penalty Timer ───────────────────────────────────
+  function startPenaltyTimer() {
+    if (penaltyCountdownTimer) return; // already running
+    penaltySecondsLeft = 10;
+    penaltyTimer.textContent = `${penaltySecondsLeft}s`;
 
-    challengeCountdownTimer = setInterval(() => {
-      challengeSecondsLeft--;
-      if (challengeSecondsLeft <= 0) {
-        challengeTimer.textContent = '0s';
-        stopChallengeTimer();
-        challengeModal.style.display = 'none';
+    penaltyCountdownTimer = setInterval(() => {
+      penaltySecondsLeft--;
+      if (penaltySecondsLeft <= 0) {
+        penaltyTimer.textContent = '0s';
+        stopPenaltyTimer();
+        penaltyModal.style.display = 'none';
       } else {
-        challengeTimer.textContent = `${challengeSecondsLeft}s`;
+        penaltyTimer.textContent = `${penaltySecondsLeft}s`;
       }
     }, 1000);
   }
 
-  function stopChallengeTimer() {
-    if (challengeCountdownTimer) {
-      clearInterval(challengeCountdownTimer);
-      challengeCountdownTimer = null;
+  function stopPenaltyTimer() {
+    if (penaltyCountdownTimer) {
+      clearInterval(penaltyCountdownTimer);
+      penaltyCountdownTimer = null;
     }
   }
 
@@ -461,7 +501,7 @@
     myId = null;
     roomCode = null;
     isHost = false;
-    stopChallengeTimer();
+    stopPenaltyTimer();
     showScreen('home');
     // Reconnect the WebSocket for future use
     setTimeout(() => Network.connect(onMessage), 500);
@@ -485,6 +525,7 @@
         break;
 
       case 'lobbyUpdate':
+        if (currentScreenName !== 'lobby') showScreen('lobby');
         renderLobby(data);
         break;
 
@@ -594,6 +635,54 @@
     } else {
       startGameBtn.style.display = 'none';
     }
+
+    // Render themes in lobby
+    const themeGrid = $('#theme-grid');
+    if (themeGrid) {
+      themeGrid.innerHTML = '';
+      const currentThemeId = data.currentTheme || 'classic';
+      
+      applyTheme(currentThemeId);
+
+      THEMES.forEach(t => {
+        const btn = document.createElement('div');
+        btn.className = 'theme-btn' + (t.id === currentThemeId ? ' active' : '');
+        if (!isHost) btn.classList.add('disabled');
+        
+        btn.classList.add('theme-btn-' + t.id);
+
+        // Add a visual preview element containing a mini table and card representation
+        const preview = document.createElement('div');
+        preview.className = 'theme-btn-preview';
+        const miniTable = document.createElement('div');
+        miniTable.className = 'mini-table';
+        const miniCard = document.createElement('div');
+        miniCard.className = 'mini-card';
+        miniTable.appendChild(miniCard);
+        preview.appendChild(miniTable);
+        btn.appendChild(preview);
+        
+        const span = document.createElement('span');
+        span.textContent = t.name;
+        btn.appendChild(span);
+
+        if (isHost) {
+          btn.addEventListener('click', () => {
+            if (t.id !== currentThemeId) {
+              Network.send({ type: 'changeTheme', theme: t.id });
+            }
+          });
+        }
+        themeGrid.appendChild(btn);
+      });
+    }
+  }
+
+  function applyTheme(themeId) {
+    document.body.className = '';
+    if (themeId !== 'classic') {
+      document.body.classList.add('theme-' + themeId);
+    }
   }
 
   // ── Render Game ───────────────────────────────────────
@@ -601,6 +690,8 @@
     console.log("🎮 renderGame received state for players:", state.players.map(p => ({ id: p.id, name: p.name, hasPfp: !!p.pfp })));
     showScreen('game');
     $('#game-room-code-val').textContent = roomCode;
+
+    applyTheme(state.currentTheme || 'classic');
 
     // Opponents bar
     renderOpponents(state);
@@ -614,30 +705,55 @@
     // Color ring
     colorRing.className = 'current-color-ring ring-' + state.topColor;
 
-    // Turn label & Wild 4 Challenge Modal
-    if (state.pendingWild4) {
-      if (state.pendingWild4.victimId === myId) {
-        // I am the victim! Show the challenge dialog.
-        challengeModal.style.display = 'flex';
-        challengeDesc.textContent = `${state.pendingWild4.playerName} played a Wild Draw 4 card against you! Do you want to challenge?`;
+    // Turn label & Penalty Modal
+    if (state.pendingDraw) {
+      if (state.pendingDraw.victimId === myId) {
+        const accumulated = state.pendingDraw.accumulatedDraw || 4;
+        const cardType = state.pendingDraw.cardType === 'wild4' ? 'Wild Draw 4' : 'Draw 2';
+        // I am the victim! Show the penalty dialog.
+        penaltyModal.style.display = 'flex';
+        penaltyTitle.textContent = `${cardType}! (+${accumulated})`;
+        penaltyDesc.textContent = `${state.pendingDraw.playerName} played a ${cardType} against you! You face a +${accumulated} penalty.`;
+
+        penaltyDrawBtn.textContent = `Decline (Draw ${accumulated})`;
+
+        const stackCard = state.hand.find(c => c.type === state.pendingDraw.cardType);
+        if (stackCard) {
+          penaltyStackBtn.style.display = 'inline-block';
+          penaltyStackBtn.textContent = `💥 Stack ${cardType === 'wild4' ? '+4' : '+2'} (Pass +${accumulated + (cardType === 'wild4' ? 4 : 2)})`;
+          penaltyStackBtn.onclick = () => {
+            penaltyModal.style.display = 'none';
+            stopPenaltyTimer();
+            pendingWildCardId = stackCard.id;
+
+            if (state.pendingDraw.cardType === 'wild4') {
+              pendingStackWild = true;
+              colorModal.style.display = 'flex';
+            } else {
+              Network.send({ type: 'stackDraw', cardId: pendingWildCardId });
+            }
+          };
+        } else {
+          penaltyStackBtn.style.display = 'none';
+        }
 
         // Start countdown timer if not already running
-        startChallengeTimer();
-        turnLabel.textContent = 'Challenge or Decline the Wild Draw 4!';
+        startPenaltyTimer();
+        turnLabel.textContent = 'Stack or Draw!';
         turnLabel.classList.add('my-turn');
       } else {
         // Someone else is the victim. Hide the modal and update turn label.
-        challengeModal.style.display = 'none';
-        stopChallengeTimer();
-        const victimPlayer = state.players.find(p => p.id === state.pendingWild4.victimId);
+        penaltyModal.style.display = 'none';
+        stopPenaltyTimer();
+        const victimPlayer = state.players.find(p => p.id === state.pendingDraw.victimId);
         const victimName = victimPlayer ? victimPlayer.name : 'opponent';
-        turnLabel.textContent = `Waiting for ${victimName} to decide on Wild 4 challenge...`;
+        turnLabel.textContent = `Waiting for ${victimName} to decide...`;
         turnLabel.classList.add('my-turn');
       }
     } else {
-      // No pending Wild 4, hide modal and stop timer
-      challengeModal.style.display = 'none';
-      stopChallengeTimer();
+      // No pending draw, hide modal and stop timer
+      penaltyModal.style.display = 'none';
+      stopPenaltyTimer();
 
       // Normal turn label logic
       if (state.isMyTurn) {
@@ -660,9 +776,9 @@
     // Player hand
     renderHand(state);
 
-    // UNO button — show if I have 2 cards (can call preemptively) or 1 card (can still call)
+    // UNO button — show if I have exactly 1 card and haven't called UNO
     const me = state.players.find(p => p.id === myId);
-    if (me && (me.cardCount <= 2) && state.isMyTurn) {
+    if (me && me.cardCount === 1 && !me.calledUno) {
       unoBtn.style.display = '';
     } else {
       unoBtn.style.display = 'none';
@@ -858,7 +974,7 @@
     const totalCards = sorted.length;
     const cardWidth = window.innerWidth < 480 ? 62 : (window.innerWidth < 768 ? 72 : 90);
     const maxHandWidth = Math.min(window.innerWidth - 60, 800);
-    
+
     let spacing = -20; // default overlap in pixels
     if (totalCards > 1) {
       const neededWidth = totalCards * cardWidth + (totalCards - 1) * spacing;
@@ -868,7 +984,7 @@
     }
 
     const mid = (totalCards - 1) / 2;
-    const maxAngle = Math.min(25, totalCards * 2.5); 
+    const maxAngle = Math.min(25, totalCards * 2.5);
     const angleStep = totalCards > 1 ? (maxAngle * 2) / (totalCards - 1) : 0;
 
     sorted.forEach((card, i) => {
@@ -878,20 +994,20 @@
         onClick: canPlay ? () => handlePlayCard(card) : null
       });
       el.style.zIndex = i;
-      
+
       let angle = 0;
       if (totalCards > 1) {
         angle = -maxAngle + i * angleStep;
       }
-      
+
       const offset = i - mid;
       const translateValY = Math.abs(offset) * Math.abs(offset) * 2.0;
       const cardCenterOffset = offset * (cardWidth + spacing);
-      
+
       el.style.setProperty('--card-rot', `${angle}deg`);
       el.style.setProperty('--card-tx', `${cardCenterOffset}px`);
       el.style.setProperty('--card-ty', `${translateValY}px`);
-      
+
       playerHand.appendChild(el);
     });
   }
@@ -1064,7 +1180,9 @@
       const color = btn.dataset.color;
       colorModal.style.display = 'none';
 
-      if (pendingDrawnWild) {
+      if (pendingStackWild) {
+        Network.send({ type: 'stackWild4', cardId: pendingWildCardId, chosenColor: color });
+      } else if (pendingDrawnWild) {
         Network.send({ type: 'playDrawnCard', chosenColor: color });
         drawnCardData = null;
       } else {
@@ -1072,20 +1190,15 @@
       }
       pendingWildCardId = null;
       pendingDrawnWild = false;
+      pendingStackWild = false;
     });
   });
 
-  // Game — Challenge Wild Draw 4
-  challengeYesBtn.addEventListener('click', () => {
-    Network.send({ type: 'challengeWild4' });
-    challengeModal.style.display = 'none';
-    stopChallengeTimer();
-  });
-
-  challengeNoBtn.addEventListener('click', () => {
-    Network.send({ type: 'declineWild4' });
-    challengeModal.style.display = 'none';
-    stopChallengeTimer();
+  // Game — Penalty Draw
+  penaltyDrawBtn.addEventListener('click', () => {
+    Network.send({ type: 'acceptDraw' });
+    penaltyModal.style.display = 'none';
+    stopPenaltyTimer();
   });
 
   // Game — Leave Game button
@@ -1187,7 +1300,7 @@
           cropX = 0;
           cropY = 0;
           cropZoomSlider.value = 1.0;
-          
+
           cropModal.style.display = 'flex';
           drawCropCanvas();
         };
@@ -1278,7 +1391,7 @@
 
       cropModal.style.display = 'none';
       pfpUploadInput.value = '';
-      
+
       showToast('Avatar cropped! Click Save to remember it. 💾');
     });
   }
