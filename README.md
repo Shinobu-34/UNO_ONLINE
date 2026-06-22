@@ -1,23 +1,32 @@
 # 🎴 UNO Online Multiplayer Card Game
 
-A premium, real-time multiplayer UNO card game built with Node.js, Express, and WebSockets. Designed for 2 to 8 players to play together across different devices.
+A premium, real-time multiplayer UNO card game built with Node.js, Express, and WebSockets. Designed for 2 to 8 players to play together across different devices with responsive layouts and beautifully styled themes.
 
-![UNO Game Preview](public/cards.js) *(Premium CSS-based responsive UI with glassmorphism and neon glows)*
+## 🚀 Key Features
 
-## 🚀 Features
-
-- **Real-Time Multiplayer**: Play with 2-8 friends on any device via WebSocket connections.
-- **Server-Authoritative Game Engine**: Standard UNO rule enforcement (no stacking, valid card validation, turn logic, auto-reshuffle).
-- **Interactive Action Log**: Visual activity feed keeps track of everyone's moves.
-- **Room System**: Host games with simple 4-character room codes.
-- **UNO Call & Catch**: Click the "UNO!" button when you have 1 card left, or catch opponents who forgot!
-- **Sleek UI**: Dark theme, glassmorphic panels, neon glows, micro-animations, and celebratory confetti for the winner.
+- **Real-Time Multiplayer**: Join with 2-8 friends on any device via WebSocket connection rooms.
+- **Server-Authoritative Game Engine**: Standard UNO rules (Draw 2 / Wild Draw 4 penalty stacks and challenges, valid card checks, turn progression, automatic deck reshuffling).
+- **Custom Player Profile Avatars**:
+  - Crop and Zoom custom image uploads using an interactive Canvas-based Profile Crop Modal.
+  - Fallbacks to retro emojis and avatar colors for players without custom profile photos.
+- **6 Premium Pure-CSS Themes**: Host-controlled themes synchronized across all players dynamically:
+  1. **Classic Felt (Default)**: Traditional blue mat with a wooden rim and standard card gradients.
+  2. **Neon Cyberpunk**: Cyber grid table, glowing cyan-magenta frames, and pitch-black cards with self-glowing neon elements.
+  3. **Royal Casino**: Luxurious crimson velvet table, thick golden metallic rim, and off-white casino playing cards with gold trims and custom-colored values.
+  4. **Retro Arcade**: Flat high-contrast pixel colors, thick block borders, pixelated values, and snappy, step-based transitions.
+  5. **Ethereal Glass**: Frosted glass tablemat over a lavender pastel gradient, translucent cards, and a slow, floating hover animation.
+  6. **Dark Matter Void**: Starry border, deep purple radial gradient void table, and matte-black cards with glowing laser borders.
+- **Dynamic Lobby Previews**: Swatch previews showing a mini 3D table and card illustration for each theme before selection in the lobby.
+- **Active Theme outlines**: Bright outline ring styled on the selected theme preview swatch to identify which style is in active use.
+- **Interactive Action Log**: Visual activity feed logging card plays, challenges, stacking events, and penalties.
+- **Stack & Decline Penalty Dialogs**: Visual modal tracking Draw 2/4 stack status, showing a countdown timer to stack matching cards or decline to draw.
+- **Winner Celebration**: Confetti animations and scoring summaries when a player discards their final card.
 
 ---
 
 ## 🛠️ Local Setup
 
-To run the game on your local computer:
+To run the game on your local machine:
 
 1. **Install dependencies:**
    ```bash
@@ -28,9 +37,13 @@ To run the game on your local computer:
    ```bash
    npm run dev
    ```
+   or
+   ```bash
+   node server.js
+   ```
 
 3. **Play the game:**
-   - Open your browser and navigate to `http://localhost:3000`
+   - Open your browser and navigate to `http://localhost:3000`.
    - To play with friends on the same local network, find your local IP address (e.g., `192.168.x.x`) and have them connect to `http://YOUR_IP:3000`.
 
 ---
