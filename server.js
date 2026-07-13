@@ -381,6 +381,10 @@ class UnoGame {
 
     if (player.hand.length !== 1) player.calledUno = false;
     if (player.hand.length === 1 && !player.calledUno) this.unoCatchablePlayerId = player.id;
+    // If a bot pre-called UNO, broadcast the notification now (before broadcastState)
+    if (player.hand.length === 1 && player.calledUno && player.isBot) {
+      this.broadcastNotification(`🎴 ${player.name} called UNO!`);
+    }
 
     // For Wild Draw 4 and Draw 2: enter Stack or Draw phase
     if (card.type === 'wild4' || card.type === 'draw2') {
@@ -453,9 +457,14 @@ class UnoGame {
       this.currentColor = card.color || this.currentColor;
     }
 
+    // UNO check: match playCard() pattern — make player catchable instead of auto-penalizing
+    if (player.hand.length !== 1) player.calledUno = false;
     if (player.hand.length === 1 && !player.calledUno) {
-      player.hand.push(...this.drawFromDeck(2));
-      this.broadcastNotification(`${player.name} forgot to say UNO! Draws 2.`);
+      this.unoCatchablePlayerId = player.id;
+    }
+    // If a bot pre-called UNO, broadcast the notification now (before broadcastState)
+    if (player.hand.length === 1 && player.calledUno && player.isBot) {
+      this.broadcastNotification(`🎴 ${player.name} called UNO!`);
     }
 
     this.currentPlayerIndex = this.pendingDraw.victimIdx;
@@ -740,9 +749,15 @@ class UnoGame {
       // Always stack a matching +2 or +4 if available; otherwise accept the draw
       const stackCard = bot.hand.find(c => c.type === this.pendingDraw.cardType);
       if (stackCard) {
+        // Pre-call UNO if stacking will leave bot with 1 card
+        const willHaveOneCard = bot.hand.length === 2;
+        if (willHaveOneCard) bot.calledUno = true;
         const chosenColor = stackCard.type === 'wild4' ? this.pickBestColor(bot) : null;
         try { this.stackDraw(botId, stackCard.id, chosenColor); }
-        catch (e) { console.error('[Bot] stackDraw error:', e.message); }
+        catch (e) {
+          if (willHaveOneCard) bot.calledUno = false;
+          console.error('[Bot] stackDraw error:', e.message);
+        }
       } else {
         try { this.acceptDraw(botId); }
         catch (e) { console.error('[Bot] acceptDraw error:', e.message); }
@@ -764,9 +779,6 @@ class UnoGame {
       if (willHaveOneCard) bot.calledUno = true;
       try {
         this.playDrawnCard(botId, chosenColor);
-        if (willHaveOneCard && this.state === 'playing' && bot.hand.length === 1) {
-          this.broadcastNotification(`🎴 ${bot.name} called UNO!`);
-        }
       } catch (e) {
         bot.calledUno = false;
         try { this.keepDrawnCard(botId); }
@@ -793,10 +805,6 @@ class UnoGame {
 
     try {
       this.playCard(botId, card.id, chosenColor);
-      // Announce UNO if the bot now has exactly 1 card and game is still live
-      if (willHaveOneCard && this.state === 'playing' && bot.hand.length === 1) {
-        this.broadcastNotification(`🎴 ${bot.name} called UNO!`);
-      }
     } catch (e) {
       bot.calledUno = false; // revert on failure
       console.error('[Bot] playCard error:', e.message);
