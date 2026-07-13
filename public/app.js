@@ -609,6 +609,13 @@
         item.appendChild(badge);
       }
 
+      if (p.isBot) {
+        const botBadge = document.createElement('span');
+        botBadge.className = 'player-badge player-badge-bot';
+        botBadge.textContent = '🤖 Bot';
+        item.appendChild(botBadge);
+      }
+
       if (isHost && p.id !== myId) {
         const kickBtn = document.createElement('button');
         kickBtn.className = 'btn-kick';
@@ -634,6 +641,19 @@
       startGameBtn.style.display = '';
     } else {
       startGameBtn.style.display = 'none';
+    }
+
+    // Add Bot button — host only, lobby only, max 4 bots, room not full
+    const existingAddBotBtn = document.getElementById('add-bot-btn');
+    if (existingAddBotBtn) existingAddBotBtn.remove();
+    const botCount = data.players.filter(p => p.isBot).length;
+    if (isHost && botCount < 4 && data.players.length < 8) {
+      const addBotBtn = document.createElement('button');
+      addBotBtn.id = 'add-bot-btn';
+      addBotBtn.className = 'btn btn-secondary';
+      addBotBtn.innerHTML = '🤖 Add Bot';
+      addBotBtn.addEventListener('click', () => Network.send({ type: 'addBot' }));
+      startGameBtn.insertAdjacentElement('afterend', addBotBtn);
     }
 
     // Render themes in lobby
@@ -1181,7 +1201,7 @@
       colorModal.style.display = 'none';
 
       if (pendingStackWild) {
-        Network.send({ type: 'stackWild4', cardId: pendingWildCardId, chosenColor: color });
+        Network.send({ type: 'stackDraw', cardId: pendingWildCardId, chosenColor: color });
       } else if (pendingDrawnWild) {
         Network.send({ type: 'playDrawnCard', chosenColor: color });
         drawnCardData = null;

@@ -51,13 +51,15 @@ class UnoGame {
     this.actionLog = [];
     this.unoCatchablePlayerId = null;
     this.currentTheme = 'classic';
+    this.botTimer = null;       // pending bot-turn setTimeout handle
+    this.botCatchTimer = null;  // pending bot-catch setTimeout handle
   }
 
   // ── Player management ────────────────────────────────
   addPlayer(id, name, ws, pfp) {
     if (this.players.length >= 8) throw new Error('Room is full (max 8 players)');
     if (this.state !== 'lobby') throw new Error('Game already in progress');
-    const player = { id, name, ws, hand: [], calledUno: false, connected: true, pfp: pfp || null };
+    const player = { id, name, ws, hand: [], calledUno: false, connected: true, isBot: false, pfp: pfp || null };
     this.players.push(player);
     if (this.players.length === 1) this.hostId = id;
     return player;
@@ -84,24 +86,46 @@ class UnoGame {
       // If a regular player leaves after game over, just remove them
       this.players.splice(idx, 1);
     } else {
+      const disconnectedName = this.players[idx].name; // capture name before nulling ws
       this.players[idx].connected = false;
       this.players[idx].ws = null;
 
-      // If the disconnected player was the victim of a pending Wild 4, resolve it immediately (decline)
-      if (this.pendingWild4 && this.pendingWild4.victimId === playerId) {
-        this.resolveWild4(false);
-      }
-
-      if (this.currentPlayerIndex === idx) {
+      // If the disconnected player was the victim of a pending draw, resolve it immediately (auto-accept)
+      if (this.pendingDraw && this.pendingDraw.victimId === playerId) {
+        clearTimeout(this.drawTimer);
+        this.drawTimer = null;
+        // Give the disconnected player their penalty cards and advance to next turn
+        const victim = this.players[idx];
+        victim.hand.push(...this.drawFromDeck(this.pendingDraw.accumulatedDraw));
+        this.log(`${disconnectedName} disconnected and auto-drew ${this.pendingDraw.accumulatedDraw} cards.`);
+        this.currentPlayerIndex = this.pendingDraw.victimIdx;
+        this.pendingDraw = null;
         this.nextTurn();
         this.broadcastState();
-        this.broadcastNotification(`${this.players[idx].name} disconnected. Skipping their turn.`);
+        this.broadcastNotification(`${disconnectedName} disconnected. Penalty auto-resolved. Skipping their turn.`);
+        return;
+      }
+
+      // If the disconnected player is the current active player, skip their turn
+      if (this.currentPlayerIndex === idx) {
+        // If they had an active pendingDraw they initiated, clear it
+        if (this.pendingDraw && this.pendingDraw.playerId === playerId) {
+          clearTimeout(this.drawTimer);
+          this.drawTimer = null;
+          this.pendingDraw = null;
+        }
+        this.nextTurn();
+        this.broadcastState();
+        this.broadcastNotification(`${disconnectedName} disconnected. Skipping their turn.`);
       }
     }
   }
 
   closeRoom(reason) {
-    // Notify all connected players
+    // Cancel any pending bot timers so they don't fire after the room is gone
+    if (this.botTimer) { clearTimeout(this.botTimer); this.botTimer = null; }
+    if (this.botCatchTimer) { clearTimeout(this.botCatchTimer); this.botCatchTimer = null; }
+    // Notify all connected human players
     for (const p of this.players) {
       if (p.connected && p.ws) {
         send(p.ws, { type: 'roomClosed', reason });
@@ -138,6 +162,23 @@ class UnoGame {
       return true;
     }
     return false;
+  }
+
+  // ── Bot Management ──────────────────────────────────
+  addBot() {
+    if (this.state !== 'lobby') throw new Error('Cannot add bots after the game has started');
+    const botCount = this.players.filter(p => p.isBot).length;
+    if (botCount >= 4) throw new Error('Maximum of 4 bots allowed per room');
+    if (this.players.length >= 8) throw new Error('Room is full (max 8 players)');
+    const BOT_NAMES = ['Alex', 'Sam', 'Jordan', 'Casey'];
+    const usedBotNames = this.players.filter(p => p.isBot).map(p => p.name);
+    const available = BOT_NAMES.find(n => !usedBotNames.includes('Bot ' + n));
+    const botName = available ? 'Bot ' + available : 'Bot ' + (botCount + 1);
+    const botId = 'bot_' + Math.random().toString(36).substring(2, 9);
+    this.players.push({
+      id: botId, name: botName, ws: null,
+      hand: [], calledUno: false, connected: true, isBot: true, pfp: null
+    });
   }
 
   // ── Deck ──────────────────────────────────────────────
@@ -468,6 +509,7 @@ class UnoGame {
     const player = this.players.find(p => p.id === playerId);
     if (!player) throw new Error('Player not found');
     if (player.id !== this.cur().id) throw new Error("Not your turn");
+    if (this.pendingDraw) throw new Error('A draw penalty is pending — stack or accept it first');
 
     this.unoCatchablePlayerId = null;
     if (this.drawnCard) throw new Error('Already drew a card this turn');
@@ -555,6 +597,7 @@ class UnoGame {
         calledUno: p.calledUno,
         connected: p.connected,
         isHost: p.id === this.hostId,
+        isBot: p.isBot || false,
         pfp: p.pfp
       })),
       myId: player.id,
@@ -581,10 +624,15 @@ class UnoGame {
     for (const p of this.players) {
       if (p.connected) send(p.ws, this.stateForPlayer(p));
     }
+    // After every state push, schedule the next bot action if needed
+    this.scheduleBotTurn();
+    this.scheduleBotCatch();
   }
 
   broadcastNotification(message) {
-    for (const p of this.players) send(p.ws, { type: 'notification', message });
+    for (const p of this.players) {
+      if (p.connected && p.ws) send(p.ws, { type: 'notification', message });
+    }
   }
 
   broadcastGameOver(winner) {
@@ -618,6 +666,7 @@ class UnoGame {
         name: p.name,
         isHost: p.id === this.hostId,
         connected: p.connected,
+        isBot: p.isBot || false,
         pfp: p.pfp
       })),
       hostId: this.hostId,
@@ -647,6 +696,175 @@ class UnoGame {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.unoCatchablePlayerId = null;
+    if (this.botTimer) { clearTimeout(this.botTimer); this.botTimer = null; }
+    if (this.botCatchTimer) { clearTimeout(this.botCatchTimer); this.botCatchTimer = null; }
+    // Remove disconnected human players; keep bots for the next game
+    this.players = this.players.filter(p => p.isBot || p.connected);
+  }
+
+  // ── Bot AI ─────────────────────────────────────────────
+
+  scheduleBotTurn() {
+    if (this.state !== 'playing') return;
+    if (this.botTimer) { clearTimeout(this.botTimer); this.botTimer = null; }
+
+    // Determine which bot should act:
+    // • If a pendingDraw is active, check if the victim is a bot
+    // • Otherwise, check if the current player is a bot
+    let targetBot = null;
+    if (this.pendingDraw) {
+      targetBot = this.players.find(
+        p => p.id === this.pendingDraw.victimId && p.isBot && p.connected
+      ) || null;
+    } else {
+      const cur = this.cur();
+      targetBot = (cur && cur.isBot && cur.connected) ? cur : null;
+    }
+    if (!targetBot) return;
+
+    const delay = 4000 + Math.random() * 1000; // 4–5 second human-like delay
+    const botId = targetBot.id;
+    this.botTimer = setTimeout(() => {
+      this.botTimer = null;
+      this.performBotTurn(botId);
+    }, delay);
+  }
+
+  performBotTurn(botId) {
+    if (this.state !== 'playing') return;
+    const bot = this.players.find(p => p.id === botId);
+    if (!bot || !bot.isBot || !bot.connected) return;
+
+    // ── Branch 1: Bot is the pending-draw victim (stack or accept) ──
+    if (this.pendingDraw && this.pendingDraw.victimId === botId) {
+      // Always stack a matching +2 or +4 if available; otherwise accept the draw
+      const stackCard = bot.hand.find(c => c.type === this.pendingDraw.cardType);
+      if (stackCard) {
+        const chosenColor = stackCard.type === 'wild4' ? this.pickBestColor(bot) : null;
+        try { this.stackDraw(botId, stackCard.id, chosenColor); }
+        catch (e) { console.error('[Bot] stackDraw error:', e.message); }
+      } else {
+        try { this.acceptDraw(botId); }
+        catch (e) { console.error('[Bot] acceptDraw error:', e.message); }
+      }
+      return;
+    }
+
+    // ── Ensure it's still this bot's turn ───────────────────────────
+    if (!this.cur() || this.cur().id !== botId) return;
+
+    // ── Branch 2: Bot already drew a card this turn ─────────────────
+    // drawCard() only keeps drawnCard set when the card IS playable,
+    // so we can always attempt to play it here.
+    if (this.drawnCard) {
+      const card = this.drawnCard;
+      const chosenColor = (card.type === 'wild' || card.type === 'wild4')
+        ? this.pickBestColor(bot) : null;
+      const willHaveOneCard = bot.hand.length === 2;
+      if (willHaveOneCard) bot.calledUno = true;
+      try {
+        this.playDrawnCard(botId, chosenColor);
+        if (willHaveOneCard && this.state === 'playing' && bot.hand.length === 1) {
+          this.broadcastNotification(`🎴 ${bot.name} called UNO!`);
+        }
+      } catch (e) {
+        bot.calledUno = false;
+        try { this.keepDrawnCard(botId); }
+        catch (e2) { console.error('[Bot] keepDrawnCard error:', e2.message); }
+      }
+      return;
+    }
+
+    // ── Branch 3: Normal turn – pick the best card or draw ──────────
+    const playable = bot.hand.filter(c => this.isValidPlay(c));
+    if (playable.length === 0) {
+      try { this.drawCard(botId); }
+      catch (e) { console.error('[Bot] drawCard error:', e.message); }
+      return;
+    }
+
+    const card = this.pickBestCard(bot, playable);
+    const chosenColor = (card.type === 'wild' || card.type === 'wild4')
+      ? this.pickBestColor(bot) : null;
+
+    // Pre-mark UNO before the play so unoCatchablePlayerId is never set for bots
+    const willHaveOneCard = bot.hand.length === 2;
+    if (willHaveOneCard) bot.calledUno = true;
+
+    try {
+      this.playCard(botId, card.id, chosenColor);
+      // Announce UNO if the bot now has exactly 1 card and game is still live
+      if (willHaveOneCard && this.state === 'playing' && bot.hand.length === 1) {
+        this.broadcastNotification(`🎴 ${bot.name} called UNO!`);
+      }
+    } catch (e) {
+      bot.calledUno = false; // revert on failure
+      console.error('[Bot] playCard error:', e.message);
+    }
+  }
+
+  // Choose the best playable card based on game situation
+  pickBestCard(bot, playable) {
+    const numbers  = playable.filter(c => c.type === 'number');
+    const skips    = playable.filter(c => c.type === 'skip');
+    const reverses = playable.filter(c => c.type === 'reverse');
+    const draw2s   = playable.filter(c => c.type === 'draw2');
+    const wilds    = playable.filter(c => c.type === 'wild');
+    const wild4s   = playable.filter(c => c.type === 'wild4');
+
+    // Aggressive mode: an opponent has ≤2 cards — go for the kill
+    const someoneWinning = this.players.some(
+      p => p.id !== bot.id && p.connected && p.hand.length <= 2
+    );
+    if (someoneWinning) {
+      if (wild4s.length)   return wild4s[0];
+      if (draw2s.length)   return draw2s[0];
+      if (skips.length)    return skips[0];
+      if (reverses.length) return reverses[0];
+      if (wilds.length)    return wilds[0];
+      if (numbers.length)  return numbers[Math.floor(Math.random() * numbers.length)];
+    }
+
+    // Conservative mode: burn numbers/actions first, save wilds for later
+    if (numbers.length)  return numbers[Math.floor(Math.random() * numbers.length)];
+    if (skips.length)    return skips[0];
+    if (reverses.length) return reverses[0];
+    if (draw2s.length)   return draw2s[0];
+    if (wilds.length)    return wilds[0];
+    return wild4s[0]; // last resort
+  }
+
+  // Return the color the bot has the most of (greedy strategy)
+  pickBestColor(bot) {
+    const counts = { red: 0, blue: 0, green: 0, yellow: 0 };
+    for (const c of bot.hand) {
+      if (c.color && counts[c.color] !== undefined) counts[c.color]++;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] || 'red';
+  }
+
+  // Schedule a bot to catch a human player who forgot to call UNO
+  scheduleBotCatch() {
+    if (this.botCatchTimer) { clearTimeout(this.botCatchTimer); this.botCatchTimer = null; }
+    if (!this.unoCatchablePlayerId) return;
+
+    // Only attempt to catch human players (bots never forget UNO)
+    const target = this.players.find(
+      p => p.id === this.unoCatchablePlayerId && !p.isBot
+    );
+    if (!target) return;
+
+    const bots = this.players.filter(p => p.isBot && p.connected);
+    if (bots.length === 0) return;
+
+    const catcher = bots[Math.floor(Math.random() * bots.length)];
+    const delay = 2000 + Math.random() * 2500; // 2–4.5 second reaction window
+
+    this.botCatchTimer = setTimeout(() => {
+      this.botCatchTimer = null;
+      if (this.unoCatchablePlayerId !== target.id) return; // window already closed
+      try { this.catchUno(catcher.id, target.id); } catch (e) { /* window closed */ }
+    }, delay);
   }
 }
 
@@ -753,6 +971,13 @@ wss.on('connection', (ws) => {
           game.currentTheme = msg.theme;
           if (game.state === 'lobby') game.broadcastLobby();
           else game.broadcastState();
+          break;
+
+        case 'addBot':
+          if (!game) return;
+          if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can add bots' });
+          game.addBot();
+          game.broadcastLobby();
           break;
 
         default:

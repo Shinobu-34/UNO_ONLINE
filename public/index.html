@@ -70,27 +70,30 @@
 
   <!-- ═══ LOBBY SCREEN ═══ -->
   <div id="lobby-screen" class="screen">
-    <div class="lobby-layout">
-      <!-- Left Column: Lobby Info -->
-      <div class="lobby-container">
-        <div class="lobby-header glass-panel">
-          <h2>Room Code</h2>
-          <div class="room-code-display" id="lobby-room-code">ABCD</div>
-          <button id="copy-code-btn" class="btn btn-ghost btn-sm">📋 Copy Code</button>
-          <p class="lobby-hint">Share this code with your friends!</p>
+      <div class="lobby-layout three-column">
+        <!-- Left Column: Actions -->
+        <div class="lobby-actions-column">
+          <div class="lobby-actions">
+            <button id="start-game-btn" class="btn btn-primary btn-lg" style="display:none;">
+              🎮 Start Game
+            </button>
+            <button id="leave-room-btn" class="btn btn-ghost">Leave Room</button>
+          </div>
         </div>
 
-        <div class="players-list glass-panel" id="lobby-players">
-          <!-- Populated dynamically -->
-        </div>
+        <!-- Middle Column: Lobby Info -->
+        <div class="lobby-center-column">
+          <div class="lobby-header glass-panel">
+            <h2>Room Code</h2>
+            <div class="room-code-display" id="lobby-room-code">ABCD</div>
+            <button id="copy-code-btn" class="btn btn-ghost btn-sm">📋 Copy Code</button>
+            <p class="lobby-hint">Share this code with your friends!</p>
+          </div>
 
-        <div class="lobby-actions">
-          <button id="start-game-btn" class="btn btn-primary btn-lg" style="display:none;">
-            🎮 Start Game
-          </button>
-          <button id="leave-room-btn" class="btn btn-ghost">Leave Room</button>
+          <div class="players-list glass-panel scrollable-list" id="lobby-players">
+            <!-- Populated dynamically -->
+          </div>
         </div>
-      </div>
 
       <!-- Right Column: Theme Selection -->
       <div class="lobby-theme-panel glass-panel" id="theme-panel">

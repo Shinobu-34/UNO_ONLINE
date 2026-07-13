@@ -463,6 +463,8 @@ input[type="text"]::placeholder {
   gap: 30px;
   max-width: 900px;
   width: 90%;
+  /* Constrain to viewport so nothing ever pushes off-screen */
+  max-height: calc(100vh - 40px);
   justify-content: center;
   align-items: stretch;
 }
@@ -475,6 +477,9 @@ input[type="text"]::placeholder {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  /* Prevent the column from growing taller than its parent */
+  min-height: 0;
+  overflow: hidden;
 }
 
 .lobby-theme-panel {
@@ -592,8 +597,13 @@ input[type="text"]::placeholder {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 300px;
+  /* Grow to fill all space left by the header and actions, then scroll */
+  flex: 1;
+  min-height: 0;       /* critical: allows flex child to shrink below content size */
   overflow-y: auto;
+  /* Keep a subtle scrollbar on desktop */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.4) transparent;
 }
 
 .player-item {
@@ -632,6 +642,14 @@ input[type="text"]::placeholder {
   background: rgba(168, 85, 247, 0.2);
   color: var(--accent);
   font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Bot badge — teal variant of the host badge */
+.player-badge-bot {
+  background: rgba(6, 182, 212, 0.18);
+  color: #67e8f9;
+  border: 1px solid rgba(6, 182, 212, 0.35);
 }
 
 .btn-kick {
@@ -668,6 +686,9 @@ input[type="text"]::placeholder {
   flex-direction: column;
   gap: 10px;
   align-items: center;
+  /* Never let the buttons be squeezed or pushed off screen */
+  flex-shrink: 0;
+  padding-top: 4px;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -2745,4 +2766,83 @@ body.theme-void .card-back {
 body.theme-void .card-back-inner {
   color: rgba(168, 85, 247, 0.9) !important;
   text-shadow: 0 0 8px rgba(168, 85, 247, 0.8) !important;
+}
+
+/* ── Add Bot Button ─────────────────────────────────────────── */
+#add-bot-btn {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.08));
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  color: #67e8f9;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+#add-bot-btn:hover {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.28), rgba(6, 182, 212, 0.15));
+  border-color: rgba(6, 182, 212, 0.7);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+}
+
+/* ── Main Lobby Three-Column Layout ─────────────────────────────────────────── */
+.lobby-layout.three-column {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr; /* Middle column slightly wider */
+  gap: 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: flex-start;
+}
+
+/* Left Column: Actions */
+.lobby-actions-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.lobby-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.lobby-actions button {
+  width: 100%;
+}
+
+/* Middle Column: Lobby Info & Players */
+.lobby-center-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+/* Scrollable Player List */
+.players-list.scrollable-list {
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 8px; /* Breathing room for scrollbar */
+}
+
+/* Scrollbar Styling */
+.players-list.scrollable-list::-webkit-scrollbar {
+  width: 6px;
+}
+.players-list.scrollable-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.players-list.scrollable-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+.players-list.scrollable-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Right Column: Theme Panel */
+.lobby-theme-panel {
+  width: 100%;
 }
