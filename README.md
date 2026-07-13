@@ -9,6 +9,10 @@ A premium, real-time multiplayer UNO card game built with Node.js, Express, and 
 - **Custom Player Profile Avatars**:
   - Crop and Zoom custom image uploads using an interactive Canvas-based Profile Crop Modal.
   - Fallbacks to retro emojis and avatar colors for players without custom profile photos.
+- **Balanced 3-Column Lobby UI**:
+  - Clean CSS Grid layout neatly separating Game Action Controls (left), Room Code & Player Roster (center), and Theme Customization (right).
+  - **Scrollable Player & Bot Roster**: Dedicated vertical scroll container with custom glassmorphic scrollbars supporting up to 8 players/bots without layout shifting.
+- **AI Bot Players**: Host-controlled addition of AI bots directly from the lobby action panel.
 - **6 Premium Pure-CSS Themes**: Host-controlled themes synchronized across all players dynamically:
   1. **Classic Felt (Default)**: Traditional blue mat with a wooden rim and standard card gradients.
   2. **Neon Cyberpunk**: Cyber grid table, glowing cyan-magenta frames, and pitch-black cards with self-glowing neon elements.
