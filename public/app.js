@@ -656,6 +656,35 @@
       startGameBtn.insertAdjacentElement('afterend', addBotBtn);
     }
 
+    // Game mode selector & rules description
+    const modeSelect = $('#game-mode-select');
+    const rulesList = $('#mode-rules-list');
+    if (modeSelect) {
+      modeSelect.value = data.gameMode || 'classic';
+      modeSelect.disabled = !isHost;
+      modeSelect.onchange = (e) => {
+        if (isHost) {
+          Network.send({ type: 'changeMode', mode: e.target.value });
+        }
+      };
+    }
+    if (rulesList) {
+      if ((data.gameMode || 'classic') === 'nomercy') {
+        rulesList.innerHTML = `
+          <li><strong>Mercy Rule:</strong> 25+ cards in hand = Eliminated!</li>
+          <li><strong>Aggressive Stacking:</strong> Stack +2, +4, +6, +10 on ANY draw card!</li>
+          <li><strong>7 & 0 Rules:</strong> Play 7 to swap hands; Play 0 to rotate all hands!</li>
+          <li><strong>Discard All:</strong> Discards all cards of matching color!</li>
+        `;
+      } else {
+        rulesList.innerHTML = `
+          <li>Standard UNO deck (108 cards).</li>
+          <li>Match by color or number.</li>
+          <li>First to empty their hand wins!</li>
+        `;
+      }
+    }
+
     // Render themes in lobby
     const themeGrid = $('#theme-grid');
     if (themeGrid) {
@@ -729,7 +758,8 @@
     if (state.pendingDraw) {
       if (state.pendingDraw.victimId === myId) {
         const accumulated = state.pendingDraw.accumulatedDraw || 4;
-        const cardType = state.pendingDraw.cardType === 'wild4' ? 'Wild Draw 4' : 'Draw 2';
+        const typeNames = { wild4: 'Wild Draw 4', wild6: 'Wild Draw 6', wild10: 'Wild Draw 10', draw2: 'Draw 2' };
+        const cardType = typeNames[state.pendingDraw.cardType] || 'Draw Penalty';
         // I am the victim! Show the penalty dialog.
         penaltyModal.style.display = 'flex';
         penaltyTitle.textContent = `${cardType}! (+${accumulated})`;
@@ -737,16 +767,22 @@
 
         penaltyDrawBtn.textContent = `Decline (Draw ${accumulated})`;
 
-        const stackCard = state.hand.find(c => c.type === state.pendingDraw.cardType);
+        const drawTypes = ['draw2', 'wild4', 'wild6', 'wild10'];
+        const stackCard = state.hand.find(c => {
+          if (state.gameMode === 'nomercy') return drawTypes.includes(c.type);
+          return c.type === state.pendingDraw.cardType;
+        });
         if (stackCard) {
+          const incMap = { draw2: 2, wild4: 4, wild6: 6, wild10: 10 };
+          const inc = incMap[stackCard.type] || 2;
           penaltyStackBtn.style.display = 'inline-block';
-          penaltyStackBtn.textContent = `💥 Stack ${cardType === 'wild4' ? '+4' : '+2'} (Pass +${accumulated + (cardType === 'wild4' ? 4 : 2)})`;
+          penaltyStackBtn.textContent = `💥 Stack ${typeNames[stackCard.type] || '+2'} (Pass +${accumulated + inc})`;
           penaltyStackBtn.onclick = () => {
             penaltyModal.style.display = 'none';
             stopPenaltyTimer();
             pendingWildCardId = stackCard.id;
 
-            if (state.pendingDraw.cardType === 'wild4') {
+            if (['wild4', 'wild6', 'wild10'].includes(stackCard.type)) {
               pendingStackWild = true;
               colorModal.style.display = 'flex';
             } else {
@@ -821,6 +857,29 @@
     } else {
       drawnPrompt.style.display = 'none';
       drawnCardData = null;
+    }
+
+    // 7-Swap Modal check
+    const swapModal = $('#swap-modal');
+    const swapTargetsList = $('#swap-targets-list');
+    if (swapModal && swapTargetsList) {
+      if (state.pendingSwap && state.pendingSwap.playerId === myId) {
+        swapTargetsList.innerHTML = '';
+        const targets = state.players.filter(p => p.id !== myId && !p.eliminated && p.connected);
+        targets.forEach(t => {
+          const item = document.createElement('div');
+          item.className = 'swap-target-item';
+          item.innerHTML = `<span>👤 ${t.name}</span><span>${t.cardCount} cards</span>`;
+          item.addEventListener('click', () => {
+            Network.send({ type: 'selectSwapTarget', targetId: t.id });
+            swapModal.style.display = 'none';
+          });
+          swapTargetsList.appendChild(item);
+        });
+        swapModal.style.display = 'flex';
+      } else {
+        swapModal.style.display = 'none';
+      }
     }
 
     // Update bottom player HUD metadata dynamically
@@ -947,11 +1006,19 @@
       slot.appendChild(info);
       slot.appendChild(cardFan);
 
-      if (p.calledUno && p.cardCount === 1) {
+      if (p.calledUno && p.cardCount === 1 && !p.eliminated) {
         const unoBadge = document.createElement('span');
         unoBadge.className = 'opp-uno-badge';
         unoBadge.textContent = 'UNO';
         slot.appendChild(unoBadge);
+      }
+
+      if (p.eliminated) {
+        slot.classList.add('eliminated-player');
+        const elimBadge = document.createElement('span');
+        elimBadge.className = 'player-badge player-badge-eliminated';
+        elimBadge.textContent = '💀 ELIMINATED';
+        slot.appendChild(elimBadge);
       }
 
       opponentsBar.appendChild(slot);

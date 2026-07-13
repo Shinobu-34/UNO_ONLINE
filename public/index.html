@@ -79,6 +79,23 @@
             </button>
             <button id="leave-room-btn" class="btn btn-ghost">Leave Room</button>
           </div>
+
+          <!-- Game Mode Selector Panel -->
+          <div class="lobby-mode-panel glass-panel" id="mode-panel">
+            <h3>Game Mode</h3>
+            <select id="game-mode-select" class="mode-select">
+              <option value="classic">Classic Mode</option>
+              <option value="nomercy">UNO Show 'em No Mercy</option>
+            </select>
+            <div class="mode-rules-box" id="mode-rules-box">
+              <h4>Rules Of This Mode</h4>
+              <ul id="mode-rules-list">
+                <li>Standard UNO deck (108 cards).</li>
+                <li>Match by color or number.</li>
+                <li>First to empty their hand wins!</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <!-- Middle Column: Lobby Info -->
@@ -292,6 +309,15 @@
         <button id="crop-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
         <button id="crop-save-btn" class="btn btn-primary btn-sm">Save Crop</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ SWAP HANDS MODAL (No Mercy 7-Card) ═══ -->
+  <div id="swap-modal" class="modal-overlay" style="display:none;">
+    <div class="modal glass-panel swap-modal-content">
+      <h3>🔄 Swap Hands!</h3>
+      <p>You played a 7! Choose an opponent to swap hands with:</p>
+      <div id="swap-targets-list" class="swap-targets-list"></div>
     </div>
   </div>
 

@@ -54,6 +54,8 @@ class UnoGame {
     this.botTimer = null;       // pending bot-turn setTimeout handle
     this.botCatchTimer = null;  // pending bot-catch setTimeout handle
     this.botUnoTimer = null;    // pending bot-UNO-call setTimeout handle
+    this.gameMode = 'classic';  // 'classic' or 'nomercy'
+    this.pendingSwap = null;    // pending 7-card swap target selection
   }
 
   // ── Player management ────────────────────────────────
@@ -188,6 +190,39 @@ class UnoGame {
     const cards = [];
     const colors = ['red', 'blue', 'green', 'yellow'];
 
+    if (this.gameMode === 'nomercy') {
+      for (const color of colors) {
+        // One 0 per color
+        cards.push({ id: this.nextCardId++, color, value: 0, type: 'number' });
+        // Three each of 1-9
+        for (let n = 1; n <= 9; n++) {
+          cards.push({ id: this.nextCardId++, color, value: n, type: 'number' });
+          cards.push({ id: this.nextCardId++, color, value: n, type: 'number' });
+          cards.push({ id: this.nextCardId++, color, value: n, type: 'number' });
+        }
+        // Three each of action cards
+        for (let i = 0; i < 3; i++) {
+          cards.push({ id: this.nextCardId++, color, value: null, type: 'skip' });
+          cards.push({ id: this.nextCardId++, color, value: null, type: 'reverse' });
+          cards.push({ id: this.nextCardId++, color, value: null, type: 'draw2' });
+        }
+        // One Discard All per color
+        cards.push({ id: this.nextCardId++, color, value: null, type: 'discardall' });
+      }
+      // 4 Wild + 4 Wild Draw Four + 3 Wild Draw 6 + 2 Wild Draw 10
+      for (let i = 0; i < 4; i++) {
+        cards.push({ id: this.nextCardId++, color: null, value: null, type: 'wild' });
+        cards.push({ id: this.nextCardId++, color: null, value: null, type: 'wild4' });
+      }
+      for (let i = 0; i < 3; i++) {
+        cards.push({ id: this.nextCardId++, color: null, value: null, type: 'wild6' });
+      }
+      for (let i = 0; i < 2; i++) {
+        cards.push({ id: this.nextCardId++, color: null, value: null, type: 'wild10' });
+      }
+      return cards;
+    }
+
     for (const color of colors) {
       // One 0 per color
       cards.push({ id: this.nextCardId++, color, value: 0, type: 'number' });
@@ -254,13 +289,14 @@ class UnoGame {
     for (const p of this.players) {
       p.hand = this.drawFromDeck(7);
       p.calledUno = false;
+      p.eliminated = false;
     }
 
-    // Flip first card (no Wild Draw 4 as first)
+    // Flip first card (no Wild Draw 4/6/10 as first)
     let first;
     while (true) {
       first = this.deck.pop();
-      if (first.type === 'wild4') {
+      if (['wild4', 'wild6', 'wild10'].includes(first.type)) {
         this.deck.unshift(first);
         this.shuffle(this.deck);
       } else break;
@@ -294,28 +330,19 @@ class UnoGame {
 
   nextTurn() {
     this.drawnCard = null;
-    const connected = this.players.filter(p => p.connected).length;
-    if (connected === 0) return;
+    const activePlayers = this.players.filter(p => p.connected && !p.eliminated);
+    if (activePlayers.length === 0) return;
     let safety = this.players.length + 1;
     do {
       this.currentPlayerIndex = ((this.currentPlayerIndex + this.direction) % this.players.length + this.players.length) % this.players.length;
       safety--;
-    } while (!this.players[this.currentPlayerIndex].connected && safety > 0);
+    } while ((!this.players[this.currentPlayerIndex].connected || this.players[this.currentPlayerIndex].eliminated) && safety > 0);
   }
 
   // ── Card validation ───────────────────────────────────
   isValidPlay(card) {
-    if (card.type === 'wild') return true;
-    // Wild Draw 4: can ONLY be played if player has NO cards matching current color
-    if (card.type === 'wild4') {
-      const player = this.cur();
-      const hasMatchingColor = player.hand.some(
-        c => c.id !== card.id && c.color === this.currentColor
-      );
-      // Allow it to be played (server will track legality for challenges)
-      // But we return true to allow the play — challenge handles enforcement
-      return true;
-    }
+    if (['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)) return true;
+    if (card.type === 'discardall' && card.color === this.currentColor) return true;
     const top = this.topCard();
     if (card.color === this.currentColor) return true;
     if (card.type === 'number' && top.type === 'number' && card.value === top.value) return true;
@@ -348,30 +375,35 @@ class UnoGame {
 
     const card = player.hand[ci];
     if (!this.isValidPlay(card)) throw new Error('Invalid play');
-    if ((card.type === 'wild' || card.type === 'wild4') && !chosenColor) {
+    if (['wild', 'wild4', 'wild6', 'wild10'].includes(card.type) && !chosenColor) {
       throw new Error('Must choose a color for wild cards');
-    }
-
-    // For Wild Draw 4, track legality for possible challenge
-    let wild4Legal = true;
-    if (card.type === 'wild4') {
-      // Check BEFORE removing the card: did the player have any matching color cards?
-      wild4Legal = !player.hand.some(c => c.id !== card.id && c.color === this.currentColor);
     }
 
     // Remove from hand, add to discard
     player.hand.splice(ci, 1);
     this.discardPile.push(card);
 
+    // Discard All extra matching color cards
+    if (card.type === 'discardall') {
+      const sameColor = player.hand.filter(c => c.color === card.color);
+      if (sameColor.length > 0) {
+        player.hand = player.hand.filter(c => c.color !== card.color);
+        this.discardPile.push(...sameColor);
+        this.log(`${player.name} discarded ${sameColor.length} extra ${card.color} cards!`);
+      }
+    }
+
     // Set color
-    this.currentColor = (card.type === 'wild' || card.type === 'wild4') ? chosenColor : card.color;
+    this.currentColor = ['wild', 'wild4', 'wild6', 'wild10'].includes(card.type) ? chosenColor : card.color;
 
     const cn = this.currentColor.charAt(0).toUpperCase() + this.currentColor.slice(1);
     if (card.type === 'number') this.log(`${player.name} played ${cn} ${card.value}`);
     else if (card.type === 'wild') this.log(`${player.name} played Wild → ${cn}`);
-    else if (card.type === 'wild4') this.log(`${player.name} played Wild Draw 4 → ${cn}`);
-    else {
-      const label = card.type === 'draw2' ? 'Draw 2' : card.type === 'skip' ? 'Skip' : 'Reverse';
+    else if (['wild4', 'wild6', 'wild10'].includes(card.type)) {
+      const pen = card.type === 'wild10' ? 10 : card.type === 'wild6' ? 6 : 4;
+      this.log(`${player.name} played Wild Draw ${pen} → ${cn}`);
+    } else {
+      const label = card.type === 'draw2' ? 'Draw 2' : card.type === 'discardall' ? 'Discard All' : card.type === 'skip' ? 'Skip' : 'Reverse';
       this.log(`${player.name} played ${cn} ${label}`);
     }
 
@@ -384,9 +416,32 @@ class UnoGame {
     if (player.hand.length !== 1) player.calledUno = false;
     if (player.hand.length === 1 && !player.calledUno) this.unoCatchablePlayerId = player.id;
 
-    // For Wild Draw 4 and Draw 2: enter Stack or Draw phase
-    if (card.type === 'wild4' || card.type === 'draw2') {
-      const penalty = card.type === 'wild4' ? 4 : 2;
+    // Check 7-swap in No Mercy mode
+    if (this.gameMode === 'nomercy' && card.type === 'number' && card.value === 7) {
+      const aliveOpponents = this.players.filter(p => p.id !== player.id && !p.eliminated && p.connected);
+      if (aliveOpponents.length > 0) {
+        if (player.isBot) {
+          const target = aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)];
+          this.pendingSwap = { playerId: player.id };
+          this.selectSwapTarget(player.id, target.id);
+          return;
+        } else {
+          this.pendingSwap = { playerId: player.id };
+          this.broadcastState();
+          return;
+        }
+      }
+    }
+
+    // Check 0-rotate in No Mercy mode
+    if (this.gameMode === 'nomercy' && card.type === 'number' && card.value === 0) {
+      this.rotateHands();
+    }
+
+    // For Wild Draw cards and Draw 2: enter Stack or Draw phase
+    if (['wild4', 'wild6', 'wild10', 'draw2'].includes(card.type)) {
+      const penaltyMap = { draw2: 2, wild4: 4, wild6: 6, wild10: 10 };
+      const penalty = penaltyMap[card.type] || 2;
       this.pendingDraw = {
         playerId: player.id,
         playerName: player.name,
@@ -396,7 +451,11 @@ class UnoGame {
       };
 
       const n = this.players.length;
-      const victimIdx = ((this.currentPlayerIndex + this.direction) % n + n) % n;
+      let victimIdx = this.currentPlayerIndex;
+      do {
+        victimIdx = ((victimIdx + this.direction) % n + n) % n;
+      } while (this.players[victimIdx].eliminated || !this.players[victimIdx].connected);
+
       const victim = this.players[victimIdx];
       this.pendingDraw.victimId = victim.id;
       this.pendingDraw.victimIdx = victimIdx;
@@ -429,6 +488,7 @@ class UnoGame {
 
     this.pendingDraw = null;
     this.currentPlayerIndex = victimIdx;
+    this.checkMercyRule(victim);
     this.nextTurn();
     this.broadcastState();
   }
@@ -442,15 +502,20 @@ class UnoGame {
     if (cardIdx === -1) return;
     const card = player.hand[cardIdx];
     
-    if (card.type !== this.pendingDraw.cardType) return;
+    const drawTypes = ['draw2', 'wild4', 'wild6', 'wild10'];
+    if (this.gameMode === 'nomercy') {
+      if (!drawTypes.includes(card.type)) return;
+    } else {
+      if (card.type !== this.pendingDraw.cardType) return;
+    }
 
     clearTimeout(this.drawTimer);
 
     player.hand.splice(cardIdx, 1);
     this.discardPile.push(card);
     
-    if (card.type === 'wild4') {
-      this.currentColor = chosenColor;
+    if (['wild4', 'wild6', 'wild10'].includes(card.type)) {
+      this.currentColor = chosenColor || 'red';
     } else {
       this.currentColor = card.color || this.currentColor;
     }
@@ -464,10 +529,15 @@ class UnoGame {
     this.currentPlayerIndex = this.pendingDraw.victimIdx;
     
     const n = this.players.length;
-    const nextVictimIdx = ((this.currentPlayerIndex + this.direction) % n + n) % n;
+    let nextVictimIdx = this.currentPlayerIndex;
+    do {
+      nextVictimIdx = ((nextVictimIdx + this.direction) % n + n) % n;
+    } while (this.players[nextVictimIdx].eliminated || !this.players[nextVictimIdx].connected);
+
     const nextVictim = this.players[nextVictimIdx];
     
-    const increment = card.type === 'wild4' ? 4 : 2;
+    const penaltyMap = { draw2: 2, wild4: 4, wild6: 6, wild10: 10 };
+    const increment = penaltyMap[card.type] || 2;
     const newDrawAmount = this.pendingDraw.accumulatedDraw + increment;
 
     this.pendingDraw = {
@@ -527,6 +597,12 @@ class UnoGame {
 
     this.log(`${player.name} drew a card`);
 
+    if (this.checkMercyRule(player)) {
+      this.drawnCard = null;
+      this.broadcastState();
+      return;
+    }
+
     const canPlay = this.isValidPlay(card);
     send(player.ws, { type: 'drawnCard', card, canPlay });
 
@@ -576,6 +652,71 @@ class UnoGame {
     this.unoCatchablePlayerId = null;
     this.log(`🚨 ${catcher.name} caught ${target.name}! +2 penalty cards!`);
     this.broadcastNotification(`🚨 ${catcher.name} caught ${target.name}! +2 cards!`);
+    this.checkMercyRule(target);
+    this.broadcastState();
+  }
+
+  checkMercyRule(player) {
+    if (this.gameMode !== 'nomercy') return false;
+    if (player.eliminated) return false;
+    if (player.hand.length >= 25) {
+      player.eliminated = true;
+      player.hand = [];
+      this.log(`💀 ${player.name} was eliminated! (25+ cards — Mercy Rule)`);
+      this.broadcastNotification(`💀 ${player.name} eliminated by the Mercy Rule (25+ cards)!`);
+      if (this.cur() && this.cur().id === player.id) {
+        this.nextTurn();
+      }
+      const alive = this.players.filter(p => !p.eliminated && p.connected);
+      if (alive.length === 1) {
+        this.state = 'finished';
+        this.broadcastGameOver(alive[0]);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  rotateHands() {
+    const alive = this.players.filter(p => !p.eliminated && p.connected);
+    if (alive.length <= 1) return;
+    const hands = alive.map(p => p.hand);
+    if (this.direction === 1) {
+      const last = hands.pop();
+      hands.unshift(last);
+    } else {
+      const first = hands.shift();
+      hands.push(first);
+    }
+    alive.forEach((p, i) => {
+      p.hand = hands[i];
+      p.calledUno = false;
+      this.checkMercyRule(p);
+    });
+    this.log('🔄 Everyone passed their hand!');
+    this.broadcastNotification('🔄 Zero played — all hands rotated!');
+  }
+
+  selectSwapTarget(playerId, targetId) {
+    if (!this.pendingSwap || this.pendingSwap.playerId !== playerId) return;
+    const p1 = this.players.find(p => p.id === playerId);
+    const p2 = this.players.find(p => p.id === targetId);
+    if (!p1 || !p2 || p2.eliminated) return;
+
+    const tmp = p1.hand;
+    p1.hand = p2.hand;
+    p2.hand = tmp;
+    p1.calledUno = false;
+    p2.calledUno = false;
+
+    this.pendingSwap = null;
+    this.log(`🔄 ${p1.name} swapped hands with ${p2.name}!`);
+    this.broadcastNotification(`🔄 ${p1.name} swapped hands with ${p2.name}!`);
+
+    this.checkMercyRule(p1);
+    this.checkMercyRule(p2);
+
+    this.nextTurn();
     this.broadcastState();
   }
 
@@ -599,13 +740,14 @@ class UnoGame {
         cardCount: p.hand.length,
         calledUno: p.calledUno,
         connected: p.connected,
+        eliminated: p.eliminated || false,
         isHost: p.id === this.hostId,
         isBot: p.isBot || false,
         pfp: p.pfp
       })),
       myId: player.id,
       drawPileCount: this.deck.length,
-      isMyTurn: player.id === this.cur().id && !this.pendingDraw,
+      isMyTurn: player.id === this.cur().id && !this.pendingDraw && !this.pendingSwap && !player.eliminated,
       hasDrawnCard: this.drawnCard !== null && player.id === this.cur().id,
       drawnCard: (this.drawnCard !== null && player.id === this.cur().id) ? this.drawnCard : null,
       pendingDraw: this.pendingDraw ? {
@@ -614,12 +756,14 @@ class UnoGame {
         cardType: this.pendingDraw.cardType,
         accumulatedDraw: this.pendingDraw.accumulatedDraw
       } : null,
+      pendingSwap: this.pendingSwap,
       catchable: this.unoCatchablePlayerId && this.unoCatchablePlayerId !== player.id
         ? [this.players.find(p => p.id === this.unoCatchablePlayerId)].filter(Boolean).map(p => ({ id: p.id, name: p.name }))
         : [],
       log: this.actionLog.slice(-10),
       gameState: this.state,
-      currentTheme: this.currentTheme
+      currentTheme: this.currentTheme,
+      gameMode: this.gameMode
     };
   }
 
@@ -674,7 +818,8 @@ class UnoGame {
         pfp: p.pfp
       })),
       hostId: this.hostId,
-      currentTheme: this.currentTheme
+      currentTheme: this.currentTheme,
+      gameMode: this.gameMode
     };
   }
 
@@ -689,12 +834,14 @@ class UnoGame {
     for (const p of this.players) {
       p.hand = [];
       p.calledUno = false;
+      p.eliminated = false;
     }
     this.deck = [];
     this.discardPile = [];
     this.actionLog = [];
     this.drawnCard = null;
     this.pendingDraw = null;
+    this.pendingSwap = null;
     if (this.drawTimer) clearTimeout(this.drawTimer);
     this.drawTimer = null;
     this.currentPlayerIndex = 0;
@@ -742,10 +889,13 @@ class UnoGame {
 
     // ── Branch 1: Bot is the pending-draw victim (stack or accept) ──
     if (this.pendingDraw && this.pendingDraw.victimId === botId) {
-      // Always stack a matching +2 or +4 if available; otherwise accept the draw
-      const stackCard = bot.hand.find(c => c.type === this.pendingDraw.cardType);
+      const drawTypes = ['draw2', 'wild4', 'wild6', 'wild10'];
+      const stackCard = bot.hand.find(c => {
+        if (this.gameMode === 'nomercy') return drawTypes.includes(c.type);
+        return c.type === this.pendingDraw.cardType;
+      });
       if (stackCard) {
-        const chosenColor = stackCard.type === 'wild4' ? this.pickBestColor(bot) : null;
+        const chosenColor = ['wild4', 'wild6', 'wild10'].includes(stackCard.type) ? this.pickBestColor(bot) : null;
         try { this.stackDraw(botId, stackCard.id, chosenColor); }
         catch (e) { console.error('[Bot] stackDraw error:', e.message); }
       } else {
@@ -763,7 +913,7 @@ class UnoGame {
     // so we can always attempt to play it here.
     if (this.drawnCard) {
       const card = this.drawnCard;
-      const chosenColor = (card.type === 'wild' || card.type === 'wild4')
+      const chosenColor = ['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)
         ? this.pickBestColor(bot) : null;
       try {
         this.playDrawnCard(botId, chosenColor);
@@ -783,7 +933,7 @@ class UnoGame {
     }
 
     const card = this.pickBestCard(bot, playable);
-    const chosenColor = (card.type === 'wild' || card.type === 'wild4')
+    const chosenColor = ['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)
       ? this.pickBestColor(bot) : null;
 
     try {
@@ -795,33 +945,42 @@ class UnoGame {
 
   // Choose the best playable card based on game situation
   pickBestCard(bot, playable) {
-    const numbers  = playable.filter(c => c.type === 'number');
+    const wild10s  = playable.filter(c => c.type === 'wild10');
+    const wild6s   = playable.filter(c => c.type === 'wild6');
+    const wild4s   = playable.filter(c => c.type === 'wild4');
+    const draw2s   = playable.filter(c => c.type === 'draw2');
+    const discards = playable.filter(c => c.type === 'discardall');
     const skips    = playable.filter(c => c.type === 'skip');
     const reverses = playable.filter(c => c.type === 'reverse');
-    const draw2s   = playable.filter(c => c.type === 'draw2');
     const wilds    = playable.filter(c => c.type === 'wild');
-    const wild4s   = playable.filter(c => c.type === 'wild4');
+    const numbers  = playable.filter(c => c.type === 'number');
 
-    // Aggressive mode: an opponent has ≤2 cards — go for the kill
+    // Aggressive mode: an opponent has <=2 cards — go for the kill
     const someoneWinning = this.players.some(
-      p => p.id !== bot.id && p.connected && p.hand.length <= 2
+      p => p.id !== bot.id && p.connected && !p.eliminated && p.hand.length <= 2
     );
     if (someoneWinning) {
+      if (wild10s.length)  return wild10s[0];
+      if (wild6s.length)   return wild6s[0];
       if (wild4s.length)   return wild4s[0];
       if (draw2s.length)   return draw2s[0];
+      if (discards.length) return discards[0];
       if (skips.length)    return skips[0];
       if (reverses.length) return reverses[0];
       if (wilds.length)    return wilds[0];
       if (numbers.length)  return numbers[Math.floor(Math.random() * numbers.length)];
     }
 
-    // Conservative mode: burn numbers/actions first, save wilds for later
+    // Conservative mode: burn numbers/discards/actions first, save heavy wilds for later
+    if (discards.length) return discards[0];
     if (numbers.length)  return numbers[Math.floor(Math.random() * numbers.length)];
     if (skips.length)    return skips[0];
     if (reverses.length) return reverses[0];
     if (draw2s.length)   return draw2s[0];
     if (wilds.length)    return wilds[0];
-    return wild4s[0]; // last resort
+    if (wild4s.length)   return wild4s[0];
+    if (wild6s.length)   return wild6s[0];
+    return wild10s[0] || playable[0];
   }
 
   // Return the color the bot has the most of (greedy strategy)
@@ -998,6 +1157,18 @@ wss.on('connection', (ws) => {
           game.currentTheme = msg.theme;
           if (game.state === 'lobby') game.broadcastLobby();
           else game.broadcastState();
+          break;
+
+        case 'changeMode':
+          if (!game) return;
+          if (playerId !== game.hostId) return send(ws, { type: 'error', message: 'Only the host can change the game mode' });
+          game.gameMode = msg.mode;
+          game.broadcastLobby();
+          break;
+
+        case 'selectSwapTarget':
+          if (!game) return;
+          game.selectSwapTarget(playerId, msg.targetId);
           break;
 
         case 'addBot':

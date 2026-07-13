@@ -9,7 +9,10 @@ const CardRenderer = (() => {
     reverse: '⟲',
     draw2: '+2',
     wild: '',
-    wild4: '+4'
+    wild4: '+4',
+    wild6: '+6',
+    wild10: '+10',
+    discardall: '✕ALL'
   };
 
   const LABELS = {
@@ -17,7 +20,10 @@ const CardRenderer = (() => {
     reverse: 'REV',
     draw2: '+2',
     wild: 'WILD',
-    wild4: '+4'
+    wild4: '+4',
+    wild6: '+6',
+    wild10: '+10',
+    discardall: 'ALL'
   };
 
   const AVATAR_COLORS = [
@@ -70,7 +76,7 @@ const CardRenderer = (() => {
 
       addCorners(face, String(card.value));
 
-    } else if (card.type === 'wild' || card.type === 'wild4') {
+    } else if (['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)) {
       // Wild card
       const diamond = document.createElement('div');
       diamond.className = 'wild-diamond';
@@ -83,17 +89,18 @@ const CardRenderer = (() => {
 
       const label = document.createElement('div');
       label.className = 'wild-label';
-      label.textContent = card.type === 'wild4' ? '+4' : 'WILD';
+      label.textContent = card.type === 'wild10' ? '+10' : card.type === 'wild6' ? '+6' : card.type === 'wild4' ? '+4' : 'WILD';
       face.appendChild(label);
 
       // Corners
-      const cornerText = card.type === 'wild4' ? '+4' : '✦';
+      const cornerText = card.type === 'wild10' ? '+10' : card.type === 'wild6' ? '+6' : card.type === 'wild4' ? '+4' : '✦';
       addCorners(face, cornerText);
 
     } else {
-      // Action card (skip, reverse, draw2)
+      // Action card (skip, reverse, draw2, discardall)
       const sym = document.createElement('div');
       sym.className = 'card-value card-symbol';
+      if (card.type === 'discardall') sym.classList.add('card-symbol-discardall');
       sym.textContent = SYMBOLS[card.type] || '?';
       face.appendChild(sym);
 
