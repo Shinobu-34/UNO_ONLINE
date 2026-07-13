@@ -1,73 +1,120 @@
-# 🎴 UNO Online Multiplayer Card Game
+<div align="center">
 
-A premium, real-time multiplayer UNO card game built with Node.js, Express, and WebSockets. Designed for 2 to 8 players to play together across different devices with responsive layouts and beautifully styled themes.
+# 🎴 UNO Online — Real-Time Multiplayer Card Game
 
-## 🚀 Key Features
+**A feature-rich, low-latency multiplayer UNO web application powered by Node.js, Express, WebSockets, and pure modern CSS.**
 
-- **Real-Time Multiplayer**: Join with 2-8 friends on any device via WebSocket connection rooms.
-- **Server-Authoritative Game Engine**: Standard UNO rules (Draw 2 / Wild Draw 4 penalty stacks and challenges, valid card checks, turn progression, automatic deck reshuffling).
-- **Custom Player Profile Avatars**:
-  - Crop and Zoom custom image uploads using an interactive Canvas-based Profile Crop Modal.
-  - Fallbacks to retro emojis and avatar colors for players without custom profile photos.
-- **Balanced 3-Column Lobby UI**:
-  - Clean CSS Grid layout neatly separating Game Action Controls (left), Room Code & Player Roster (center), and Theme Customization (right).
-  - **Scrollable Player & Bot Roster**: Dedicated vertical scroll container with custom glassmorphic scrollbars supporting up to 8 players/bots without layout shifting.
-- **AI Bot Players**: Host-controlled addition of AI bots directly from the lobby action panel.
-- **6 Premium Pure-CSS Themes**: Host-controlled themes synchronized across all players dynamically:
-  1. **Classic Felt (Default)**: Traditional blue mat with a wooden rim and standard card gradients.
-  2. **Neon Cyberpunk**: Cyber grid table, glowing cyan-magenta frames, and pitch-black cards with self-glowing neon elements.
-  3. **Royal Casino**: Luxurious crimson velvet table, thick golden metallic rim, and off-white casino playing cards with gold trims and custom-colored values.
-  4. **Retro Arcade**: Flat high-contrast pixel colors, thick block borders, pixelated values, and snappy, step-based transitions.
-  5. **Ethereal Glass**: Frosted glass tablemat over a lavender pastel gradient, translucent cards, and a slow, floating hover animation.
-  6. **Dark Matter Void**: Starry border, deep purple radial gradient void table, and matte-black cards with glowing laser borders.
-- **Dynamic Lobby Previews**: Swatch previews showing a mini 3D table and card illustration for each theme before selection in the lobby.
-- **Active Theme outlines**: Bright outline ring styled on the selected theme preview swatch to identify which style is in active use.
-- **Interactive Action Log**: Visual activity feed logging card plays, challenges, stacking events, and penalties.
-- **Stack & Decline Penalty Dialogs**: Visual modal tracking Draw 2/4 stack status, showing a countdown timer to stack matching cards or decline to draw.
-- **Winner Celebration**: Confetti animations and scoring summaries when a player discards their final card.
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-4.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![WebSockets](https://img.shields.io/badge/WebSockets-ws-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![HTML5 & CSS3](https://img.shields.io/badge/Frontend-Vanilla%20JS%20%7C%20CSS%20Grid-E34F26?style=for-the-badge&logo=html5&logoColor=white)](#)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://uno-online-oao9.onrender.com)
+
+[Play Live Demo](https://uno-online-oao9.onrender.com) · [Report Bug](#) · [Request Feature](#)
+
+</div>
 
 ---
 
-## 🛠️ Local Setup
+## 🌟 Overview
 
-To run the game on your local machine:
+**UNO Online** is a server-authoritative, real-time multiplayer implementation of the classic UNO card game. Designed from the ground up for seamless responsive gameplay across desktop and mobile devices, it supports **2 to 8 players** per room, intelligent **AI bots**, interactive **penalty stacking**, and **6 synchronized pure-CSS themes**.
 
-1. **Install dependencies:**
+---
+
+## ✨ Key Features
+
+### 🎮 Real-Time Multiplayer & AI Support
+- **Instant Room Creation**: Create private rooms with 4-character room codes and share instantly with friends.
+- **Smart AI Bots**: Hosts can seamlessly populate rooms with up to 4 AI bots directly from the lobby to fill empty slots or practice solo.
+- **Server-Authoritative Synchronization**: All game validation, card legality, turn timers, and deck shuffling occur securely on the backend server to ensure fairness and prevent tampering.
+
+### 🎨 Premium Glassmorphic UI & 3-Column Lobby
+- **Balanced 3-Column Lobby Layout**:
+  - **Left Column**: Clean action controls (`Start Game`, `Add Bot`, `Leave Room`).
+  - **Center Column**: Prominent Room Code display paired with a **scrollable glassmorphic player & bot roster** capable of handling up to 8 players without layout shift.
+  - **Right Column**: Interactive Theme Selector with real-time swatch previews.
+- **Custom Player Avatars**: Integrated Canvas-based interactive image crop & zoom modal for custom avatar uploads, alongside retro emoji fallbacks.
+
+### 🌌 6 Dynamic Pure-CSS Themes
+Hosts can switch themes in real-time, instantly synchronizing the aesthetic across all connected players:
+1. **Classic Felt (Default)**: Traditional casino blue felt mat with a natural wood rim and classic Uno card gradients.
+2. **Neon Cyberpunk**: Glowing cyan-magenta grid table, high-contrast neon borders, and pitch-black futuristic cards.
+3. **Royal Casino**: Deep crimson velvet table, thick polished metallic gold rim, and classic gold-trimmed cards.
+4. **Retro Arcade**: High-contrast 8-bit pixel colors, chunky block borders, and pixelated font typography.
+5. **Ethereal Glass**: Frosted translucent glass tablemat over a soothing pastel lavender gradient.
+6. **Dark Matter Void**: Deep starry void table with matte-black laser-edged cards.
+
+### ⚡ Advanced UNO Game Mechanics
+- **Draw 2 & Wild Draw 4 Stacking**: Players can chain matching +2 or +4 penalty cards to escalate penalties onto the next player.
+- **Interactive Stack / Decline Modal**: Clear countdown timers giving players the option to stack a matching card or accept the accumulated draw penalty.
+- **Wild Draw 4 Challenges**: Official UNO challenge rules allowing players to call out illegal +4 plays.
+- **Live Activity Log & Confetti Celebration**: Real-time action log tracking every card play and penalty, finished with celebratory confetti animations for winners.
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Runtime & Server** | **Node.js & Express** | Lightweight HTTP server hosting static assets and managing REST routes. |
+| **Real-Time Layer** | **ws (WebSockets)** | Low-latency bidirectional JSON message passing for deterministic game state sync. |
+| **Frontend UI** | **Vanilla ES6+ JS** | Modular, framework-free frontend architecture (`app.js`, `cards.js`, `network.js`). |
+| **Styling & Layouts** | **Pure CSS3** | Custom CSS Variables, CSS Grid 3-column layouts, Flexbox, and Glassmorphism effects. |
+| **Graphics & Avatars** | **HTML5 Canvas** | High-performance background particle rendering and client-side avatar image cropper. |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js**: Version `18.0.0` or higher
+- **npm**: Node Package Manager
+
+### Local Development Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Shinobu-34/UNO_ONLINE.git
+   cd UNO_ONLINE
+   ```
+
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Start the server:**
+3. **Start the development server:**
    ```bash
    npm run dev
    ```
-   or
+   *Alternatively, start directly with Node:*
    ```bash
    node server.js
    ```
 
-3. **Play the game:**
-   - Open your browser and navigate to `http://localhost:3000`.
-   - To play with friends on the same local network, find your local IP address (e.g., `192.168.x.x`) and have them connect to `http://YOUR_IP:3000`.
+4. **Launch the Game:**
+   - Open your browser and navigate to: `http://localhost:3000`
+   - **Multiplayer LAN Play**: Share your local IP address (`http://<YOUR_LOCAL_IP>:3000`) with devices on the same Wi-Fi network to play together.
 
 ---
 
-## ☁️ Deploying to Render.com
+## ☁️ Deployment
 
-This project is pre-configured with a `render.yaml` blueprint.
+This project includes a production-ready `render.yaml` blueprint for zero-config deployments on [Render.com](https://render.com).
 
-1. Connect your GitHub repository to **Render.com**.
-2. Click **New** > **Web Service**.
-3. Select your `UNO_ONLINE` repository.
-4. Render will automatically read the configuration:
+1. Connect your GitHub repository to **Render**.
+2. Click **New** > **Blueprint** and select this repo.
+3. Render will automatically provision using:
    - **Build Command**: `npm install`
    - **Start Command**: `node server.js`
-5. Click **Deploy Web Service** and enjoy your online game!
+4. Access your live application instance instantly.
+
+**Live Production Instance**: [https://uno-online-oao9.onrender.com](https://uno-online-oao9.onrender.com)
 
 ---
-## 🤖 WORKING UNO:- 
-   https://uno-online-oao9.onrender.com
-   
----
 
-&copy; 2026 Shinobu-34. All Rights Reserved
+## 📜 License & Acknowledgements
+
+- Designed and developed by **Shinobu-34** &copy; 2026. All Rights Reserved.
+- UNO is a registered trademark of Mattel. This project is a non-commercial, educational fan implementation.
