@@ -53,6 +53,7 @@ class UnoGame {
     this.currentTheme = 'classic';
     this.botTimer = null;       // pending bot-turn setTimeout handle
     this.botCatchTimer = null;  // pending bot-catch setTimeout handle
+    this.botUnoTimer = null;    // pending bot-UNO-call setTimeout handle
   }
 
   // ── Player management ────────────────────────────────
@@ -125,6 +126,7 @@ class UnoGame {
     // Cancel any pending bot timers so they don't fire after the room is gone
     if (this.botTimer) { clearTimeout(this.botTimer); this.botTimer = null; }
     if (this.botCatchTimer) { clearTimeout(this.botCatchTimer); this.botCatchTimer = null; }
+    if (this.botUnoTimer) { clearTimeout(this.botUnoTimer); this.botUnoTimer = null; }
     // Notify all connected human players
     for (const p of this.players) {
       if (p.connected && p.ws) {
@@ -381,10 +383,6 @@ class UnoGame {
 
     if (player.hand.length !== 1) player.calledUno = false;
     if (player.hand.length === 1 && !player.calledUno) this.unoCatchablePlayerId = player.id;
-    // If a bot pre-called UNO, broadcast the notification now (before broadcastState)
-    if (player.hand.length === 1 && player.calledUno && player.isBot) {
-      this.broadcastNotification(`🎴 ${player.name} called UNO!`);
-    }
 
     // For Wild Draw 4 and Draw 2: enter Stack or Draw phase
     if (card.type === 'wild4' || card.type === 'draw2') {
@@ -461,10 +459,6 @@ class UnoGame {
     if (player.hand.length !== 1) player.calledUno = false;
     if (player.hand.length === 1 && !player.calledUno) {
       this.unoCatchablePlayerId = player.id;
-    }
-    // If a bot pre-called UNO, broadcast the notification now (before broadcastState)
-    if (player.hand.length === 1 && player.calledUno && player.isBot) {
-      this.broadcastNotification(`🎴 ${player.name} called UNO!`);
     }
 
     this.currentPlayerIndex = this.pendingDraw.victimIdx;
@@ -636,6 +630,7 @@ class UnoGame {
     // After every state push, schedule the next bot action if needed
     this.scheduleBotTurn();
     this.scheduleBotCatch();
+    this.scheduleBotUnoCall();
   }
 
   broadcastNotification(message) {
@@ -707,6 +702,7 @@ class UnoGame {
     this.unoCatchablePlayerId = null;
     if (this.botTimer) { clearTimeout(this.botTimer); this.botTimer = null; }
     if (this.botCatchTimer) { clearTimeout(this.botCatchTimer); this.botCatchTimer = null; }
+    if (this.botUnoTimer) { clearTimeout(this.botUnoTimer); this.botUnoTimer = null; }
     // Remove disconnected human players; keep bots for the next game
     this.players = this.players.filter(p => p.isBot || p.connected);
   }
@@ -749,15 +745,9 @@ class UnoGame {
       // Always stack a matching +2 or +4 if available; otherwise accept the draw
       const stackCard = bot.hand.find(c => c.type === this.pendingDraw.cardType);
       if (stackCard) {
-        // Pre-call UNO if stacking will leave bot with 1 card
-        const willHaveOneCard = bot.hand.length === 2;
-        if (willHaveOneCard) bot.calledUno = true;
         const chosenColor = stackCard.type === 'wild4' ? this.pickBestColor(bot) : null;
         try { this.stackDraw(botId, stackCard.id, chosenColor); }
-        catch (e) {
-          if (willHaveOneCard) bot.calledUno = false;
-          console.error('[Bot] stackDraw error:', e.message);
-        }
+        catch (e) { console.error('[Bot] stackDraw error:', e.message); }
       } else {
         try { this.acceptDraw(botId); }
         catch (e) { console.error('[Bot] acceptDraw error:', e.message); }
@@ -775,12 +765,9 @@ class UnoGame {
       const card = this.drawnCard;
       const chosenColor = (card.type === 'wild' || card.type === 'wild4')
         ? this.pickBestColor(bot) : null;
-      const willHaveOneCard = bot.hand.length === 2;
-      if (willHaveOneCard) bot.calledUno = true;
       try {
         this.playDrawnCard(botId, chosenColor);
       } catch (e) {
-        bot.calledUno = false;
         try { this.keepDrawnCard(botId); }
         catch (e2) { console.error('[Bot] keepDrawnCard error:', e2.message); }
       }
@@ -799,14 +786,9 @@ class UnoGame {
     const chosenColor = (card.type === 'wild' || card.type === 'wild4')
       ? this.pickBestColor(bot) : null;
 
-    // Pre-mark UNO before the play so unoCatchablePlayerId is never set for bots
-    const willHaveOneCard = bot.hand.length === 2;
-    if (willHaveOneCard) bot.calledUno = true;
-
     try {
       this.playCard(botId, card.id, chosenColor);
     } catch (e) {
-      bot.calledUno = false; // revert on failure
       console.error('[Bot] playCard error:', e.message);
     }
   }
@@ -856,7 +838,7 @@ class UnoGame {
     if (this.botCatchTimer) { clearTimeout(this.botCatchTimer); this.botCatchTimer = null; }
     if (!this.unoCatchablePlayerId) return;
 
-    // Only attempt to catch human players (bots never forget UNO)
+    // Only attempt to catch human players (bots handle their own UNO via scheduleBotUnoCall)
     const target = this.players.find(
       p => p.id === this.unoCatchablePlayerId && !p.isBot
     );
@@ -872,6 +854,43 @@ class UnoGame {
       this.botCatchTimer = null;
       if (this.unoCatchablePlayerId !== target.id) return; // window already closed
       try { this.catchUno(catcher.id, target.id); } catch (e) { /* window closed */ }
+    }, delay);
+  }
+
+  // Schedule a delayed UNO call for a bot that just dropped to 1 card.
+  // Gives human players a 1.5–3 s catch window and a 20% chance the bot forgets entirely.
+  scheduleBotUnoCall() {
+    if (this.botUnoTimer) { clearTimeout(this.botUnoTimer); this.botUnoTimer = null; }
+    if (this.state !== 'playing') return;
+    if (!this.unoCatchablePlayerId) return;
+
+    // Only act when the catchable player IS a bot
+    const bot = this.players.find(
+      p => p.id === this.unoCatchablePlayerId && p.isBot && p.connected
+    );
+    if (!bot) return;
+
+    // 20% chance the bot "forgets" to call UNO — stays catchable until next turn
+    if (Math.random() < 0.20) {
+      console.log(`[Bot] ${bot.name} forgot to call UNO!`);
+      return;
+    }
+
+    // Delayed reaction: 1.5–3 seconds (human-like)
+    const delay = 1500 + Math.random() * 1500;
+    const targetId = bot.id;
+
+    this.botUnoTimer = setTimeout(() => {
+      this.botUnoTimer = null;
+      if (this.state !== 'playing') return;
+      // Verify the bot is still catchable and still has 1 card
+      if (this.unoCatchablePlayerId !== targetId) return; // already caught or cleared
+      const b = this.players.find(p => p.id === targetId);
+      if (!b || b.hand.length !== 1) return;
+
+      // Call UNO (sets calledUno, clears catchable, broadcasts notification + state)
+      try { this.callUno(targetId); }
+      catch (e) { console.error('[Bot] callUno error:', e.message); }
     }, delay);
   }
 }
