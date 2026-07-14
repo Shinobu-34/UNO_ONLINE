@@ -34,6 +34,13 @@ function send(ws, data) {
   }
 }
 
+// ─── Card Type Constants ──────────────────────────────────
+const WILD_TYPES      = new Set(['wild', 'wild4', 'wild6', 'wild10']);
+const DRAW_WILD_TYPES = new Set(['wild4', 'wild6', 'wild10']);
+const DRAW_TYPES      = new Set(['draw2', 'wild4', 'wild6', 'wild10']);
+const ACTION_TYPES    = new Set(['skip', 'reverse', 'draw2']);
+const COLOR_LABELS    = { red: 'Red', blue: 'Blue', green: 'Green', yellow: 'Yellow' };
+
 // ─── UNO Game Class ───────────────────────────────────────
 class UnoGame {
   constructor(roomCode) {
@@ -175,8 +182,8 @@ class UnoGame {
     if (botCount >= 4) throw new Error('Maximum of 4 bots allowed per room');
     if (this.players.length >= 8) throw new Error('Room is full (max 8 players)');
     const BOT_NAMES = ['Alex', 'Sam', 'Jordan', 'Casey'];
-    const usedBotNames = this.players.filter(p => p.isBot).map(p => p.name);
-    const available = BOT_NAMES.find(n => !usedBotNames.includes('Bot ' + n));
+    const usedBotNames = new Set(this.players.filter(p => p.isBot).map(p => p.name));
+    const available = BOT_NAMES.find(n => !usedBotNames.has('Bot ' + n));
     const botName = available ? 'Bot ' + available : 'Bot ' + (botCount + 1);
     const botId = 'bot_' + Math.random().toString(36).substring(2, 9);
     this.players.push({
@@ -341,7 +348,7 @@ class UnoGame {
 
   // ── Card validation ───────────────────────────────────
   isValidPlay(card) {
-    if (['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)) return true;
+    if (WILD_TYPES.has(card.type)) return true;
     if (card.type === 'discardall' && card.color === this.currentColor) return true;
     const top = this.topCard();
     if (card.color === this.currentColor) return true;
@@ -375,7 +382,7 @@ class UnoGame {
 
     const card = player.hand[ci];
     if (!this.isValidPlay(card)) throw new Error('Invalid play');
-    if (['wild', 'wild4', 'wild6', 'wild10'].includes(card.type) && !chosenColor) {
+    if (WILD_TYPES.has(card.type) && !chosenColor) {
       throw new Error('Must choose a color for wild cards');
     }
 
@@ -394,12 +401,12 @@ class UnoGame {
     }
 
     // Set color
-    this.currentColor = ['wild', 'wild4', 'wild6', 'wild10'].includes(card.type) ? chosenColor : card.color;
+    this.currentColor = WILD_TYPES.has(card.type) ? chosenColor : card.color;
 
-    const cn = this.currentColor.charAt(0).toUpperCase() + this.currentColor.slice(1);
+    const cn = COLOR_LABELS[this.currentColor] ?? this.currentColor;
     if (card.type === 'number') this.log(`${player.name} played ${cn} ${card.value}`);
     else if (card.type === 'wild') this.log(`${player.name} played Wild → ${cn}`);
-    else if (['wild4', 'wild6', 'wild10'].includes(card.type)) {
+    else if (DRAW_WILD_TYPES.has(card.type)) {
       const pen = card.type === 'wild10' ? 10 : card.type === 'wild6' ? 6 : 4;
       this.log(`${player.name} played Wild Draw ${pen} → ${cn}`);
     } else {
@@ -439,7 +446,7 @@ class UnoGame {
     }
 
     // For Wild Draw cards and Draw 2: enter Stack or Draw phase
-    if (['wild4', 'wild6', 'wild10', 'draw2'].includes(card.type)) {
+    if (DRAW_TYPES.has(card.type)) {
       const penaltyMap = { draw2: 2, wild4: 4, wild6: 6, wild10: 10 };
       const penalty = penaltyMap[card.type] || 2;
       this.pendingDraw = {
@@ -502,9 +509,8 @@ class UnoGame {
     if (cardIdx === -1) return;
     const card = player.hand[cardIdx];
     
-    const drawTypes = ['draw2', 'wild4', 'wild6', 'wild10'];
     if (this.gameMode === 'nomercy') {
-      if (!drawTypes.includes(card.type)) return;
+      if (!DRAW_TYPES.has(card.type)) return;
     } else {
       if (card.type !== this.pendingDraw.cardType) return;
     }
@@ -514,7 +520,7 @@ class UnoGame {
     player.hand.splice(cardIdx, 1);
     this.discardPile.push(card);
     
-    if (['wild4', 'wild6', 'wild10'].includes(card.type)) {
+    if (DRAW_WILD_TYPES.has(card.type)) {
       this.currentColor = chosenColor || 'red';
     } else {
       this.currentColor = card.color || this.currentColor;
@@ -682,11 +688,9 @@ class UnoGame {
     if (alive.length <= 1) return;
     const hands = alive.map(p => p.hand);
     if (this.direction === 1) {
-      const last = hands.pop();
-      hands.unshift(last);
+      hands.unshift(hands.pop());
     } else {
-      const first = hands.shift();
-      hands.push(first);
+      hands.push(hands.shift());
     }
     alive.forEach((p, i) => {
       p.hand = hands[i];
@@ -784,24 +788,23 @@ class UnoGame {
   }
 
   broadcastGameOver(winner) {
-    let score = 0;
+    const cardScore = (c) => {
+      if (c.type === 'number') return c.value;
+      return ACTION_TYPES.has(c.type) ? 20 : 50;
+    };
+    const score = this.players.flatMap(p => p.hand).reduce((sum, c) => sum + cardScore(c), 0);
+
+    const payload = {
+      type: 'gameOver',
+      winnerId: winner.id,
+      winnerName: winner.name,
+      score,
+      players: this.players.map(pl => ({
+        id: pl.id, name: pl.name, cardCount: pl.hand.length, hand: pl.hand
+      }))
+    };
     for (const p of this.players) {
-      for (const c of p.hand) {
-        if (c.type === 'number') score += c.value;
-        else if (['skip', 'reverse', 'draw2'].includes(c.type)) score += 20;
-        else score += 50;
-      }
-    }
-    for (const p of this.players) {
-      send(p.ws, {
-        type: 'gameOver',
-        winnerId: winner.id,
-        winnerName: winner.name,
-        score,
-        players: this.players.map(pl => ({
-          id: pl.id, name: pl.name, cardCount: pl.hand.length, hand: pl.hand
-        }))
-      });
+      send(p.ws, payload);
     }
   }
 
@@ -889,13 +892,12 @@ class UnoGame {
 
     // ── Branch 1: Bot is the pending-draw victim (stack or accept) ──
     if (this.pendingDraw && this.pendingDraw.victimId === botId) {
-      const drawTypes = ['draw2', 'wild4', 'wild6', 'wild10'];
       const stackCard = bot.hand.find(c => {
-        if (this.gameMode === 'nomercy') return drawTypes.includes(c.type);
+        if (this.gameMode === 'nomercy') return DRAW_TYPES.has(c.type);
         return c.type === this.pendingDraw.cardType;
       });
       if (stackCard) {
-        const chosenColor = ['wild4', 'wild6', 'wild10'].includes(stackCard.type) ? this.pickBestColor(bot) : null;
+        const chosenColor = DRAW_WILD_TYPES.has(stackCard.type) ? this.pickBestColor(bot) : null;
         try { this.stackDraw(botId, stackCard.id, chosenColor); }
         catch (e) { console.error('[Bot] stackDraw error:', e.message); }
       } else {
@@ -913,7 +915,7 @@ class UnoGame {
     // so we can always attempt to play it here.
     if (this.drawnCard) {
       const card = this.drawnCard;
-      const chosenColor = ['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)
+      const chosenColor = WILD_TYPES.has(card.type)
         ? this.pickBestColor(bot) : null;
       try {
         this.playDrawnCard(botId, chosenColor);
@@ -933,7 +935,7 @@ class UnoGame {
     }
 
     const card = this.pickBestCard(bot, playable);
-    const chosenColor = ['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)
+    const chosenColor = WILD_TYPES.has(card.type)
       ? this.pickBestColor(bot) : null;
 
     try {
@@ -985,11 +987,11 @@ class UnoGame {
 
   // Return the color the bot has the most of (greedy strategy)
   pickBestColor(bot) {
-    const counts = { red: 0, blue: 0, green: 0, yellow: 0 };
-    for (const c of bot.hand) {
-      if (c.color && counts[c.color] !== undefined) counts[c.color]++;
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] || 'red';
+    const counts = bot.hand.reduce((acc, c) => {
+      if (c.color) acc[c.color] = (acc[c.color] ?? 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'red';
   }
 
   // Schedule a bot to catch a human player who forgot to call UNO

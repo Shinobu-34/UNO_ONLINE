@@ -34,6 +34,9 @@
     { id: 'void', name: 'Dark Matter Void', color: '#1a0033' }
   ];
 
+  // ─── Card Type Constants ────────────────────────────────
+  const WILD_TYPES = new Set(['wild', 'wild4', 'wild6', 'wild10']);
+
   // ── DOM References ─────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -289,14 +292,13 @@
       mouse.lastX = mouse.x;
       mouse.lastY = mouse.y;
 
-      const mouseSpeed = Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy);
+      const mouseSpeed = Math.hypot(mouse.vx, mouse.vy);
 
       // Limit mouse velocity applied to cards
-      const mv = Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy);
       const maxMouseSpeed = 16;
-      if (mv > maxMouseSpeed) {
-        mouse.vx = (mouse.vx / mv) * maxMouseSpeed;
-        mouse.vy = (mouse.vy / mv) * maxMouseSpeed;
+      if (mouseSpeed > maxMouseSpeed) {
+        mouse.vx = (mouse.vx / mouseSpeed) * maxMouseSpeed;
+        mouse.vy = (mouse.vy / mouseSpeed) * maxMouseSpeed;
       }
 
       // If mouse is idle, make the virtual collider circle drift slowly around the center
@@ -1038,14 +1040,9 @@
     playerHand.innerHTML = '';
 
     // Determine which cards are playable
-    const playable = new Set();
-    if (state.isMyTurn && !state.hasDrawnCard) {
-      for (const card of state.hand) {
-        if (isPlayableClient(card, state)) {
-          playable.add(card.id);
-        }
-      }
-    }
+    const playable = state.isMyTurn && !state.hasDrawnCard
+      ? new Set(state.hand.filter(c => isPlayableClient(c, state)).map(c => c.id))
+      : new Set();
 
     // Sort hand: by color then value
     const colorOrder = { red: 0, blue: 1, green: 2, yellow: 3 };
@@ -1100,12 +1097,11 @@
   }
 
   function isPlayableClient(card, state) {
-    if (card.type === 'wild' || card.type === 'wild4') return true;
+    if (WILD_TYPES.has(card.type)) return true;
     if (card.color === state.topColor) return true;
     const top = state.topCard;
-    if (card.type === 'number' && top.type === 'number' && card.value === top.value) return true;
-    if (card.type !== 'number' && card.type === top.type) return true;
-    return false;
+    if (card.type === 'number' && top.type === 'number') return card.value === top.value;
+    return card.type !== 'number' && card.type === top.type;
   }
 
   function renderCatchButtons(catchable) {
@@ -1125,19 +1121,20 @@
 
   function renderLog(log) {
     if (!log) return;
-    actionLog.innerHTML = '';
-    log.forEach(entry => {
+    const frag = document.createDocumentFragment();
+    for (const entry of log) {
       const el = document.createElement('div');
       el.className = 'log-entry';
       el.textContent = entry.message;
-      actionLog.appendChild(el);
-    });
+      frag.appendChild(el);
+    }
+    actionLog.replaceChildren(frag);
     actionLog.scrollTop = actionLog.scrollHeight;
   }
 
   // ── Card Play Handler ─────────────────────────────────
   function handlePlayCard(card) {
-    if (card.type === 'wild' || card.type === 'wild4') {
+    if (WILD_TYPES.has(card.type)) {
       pendingWildCardId = card.id;
       pendingDrawnWild = false;
       colorModal.style.display = 'flex';

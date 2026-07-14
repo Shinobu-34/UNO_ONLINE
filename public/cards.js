@@ -4,6 +4,8 @@
 
 const CardRenderer = (() => {
 
+  const WILD_TYPES = new Set(['wild', 'wild4', 'wild6', 'wild10']);
+
   const SYMBOLS = {
     skip: '⊘',
     reverse: '⟲',
@@ -76,7 +78,7 @@ const CardRenderer = (() => {
 
       addCorners(face, String(card.value));
 
-    } else if (['wild', 'wild4', 'wild6', 'wild10'].includes(card.type)) {
+    } else if (WILD_TYPES.has(card.type)) {
       // Wild card
       const diamond = document.createElement('div');
       diamond.className = 'wild-diamond';
@@ -151,7 +153,7 @@ const CardRenderer = (() => {
    * Get initials from a name
    */
   function getInitials(name) {
-    return name.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+    return name.trim().split(/\s+/).filter(w => w.length > 0).map(w => w[0]).join('').slice(0, 2).toUpperCase();
   }
 
   /**
